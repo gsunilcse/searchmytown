@@ -30,21 +30,19 @@ export type QuickCard = {
 
 /** Default towns loaded when Firestore is not configured / as fallback */
 export const DEFAULT_TOWNS: Town[] = [
-  { id: 'hyderabad', name: 'Hyderabad', state: 'Telangana', enabled: true, coords: { lat: 17.385, lng: 78.4867 } },
+  { id: 'hyderabad', name: 'Hyderabad', state: 'Telangana', enabled: false, coords: { lat: 17.385, lng: 78.4867 } },
   { id: 'ramachandrapuram', name: 'Ramachandrapuram', state: 'Andhra Pradesh', enabled: true, coords: { lat: 16.8363, lng: 82.0254 } },
-  { id: 'vijayawada', name: 'Vijayawada', state: 'Andhra Pradesh', enabled: true, coords: { lat: 16.5062, lng: 80.6480 } },
-  { id: 'visakhapatnam', name: 'Visakhapatnam', state: 'Andhra Pradesh', enabled: true, coords: { lat: 17.6868, lng: 83.2185 } },
-  { id: 'guntur', name: 'Guntur', state: 'Andhra Pradesh', enabled: true, coords: { lat: 16.3067, lng: 80.4365 } },
-  { id: 'warangal', name: 'Warangal', state: 'Telangana', enabled: true, coords: { lat: 17.9784, lng: 79.5941 } },
-  { id: 'secunderabad', name: 'Secunderabad', state: 'Telangana', enabled: true, coords: { lat: 17.4399, lng: 78.4983 } },
-  { id: 'tirupati', name: 'Tirupati', state: 'Andhra Pradesh', enabled: true, coords: { lat: 13.6288, lng: 79.4192 } },
-  { id: 'kakinada', name: 'Kakinada', state: 'Andhra Pradesh', enabled: true, coords: { lat: 16.9891, lng: 82.2475 } },
-  { id: 'rajahmundry', name: 'Rajahmundry', state: 'Andhra Pradesh', enabled: true, coords: { lat: 17.0005, lng: 81.8040 } },
-  { id: 'nellore', name: 'Nellore', state: 'Andhra Pradesh', enabled: true, coords: { lat: 14.4426, lng: 79.9865 } },
-  { id: 'kurnool', name: 'Kurnool', state: 'Andhra Pradesh', enabled: true, coords: { lat: 15.8281, lng: 78.0373 } },
+  { id: 'vijayawada', name: 'Vijayawada', state: 'Andhra Pradesh', enabled: false, coords: { lat: 16.5062, lng: 80.6480 } },
+  { id: 'visakhapatnam', name: 'Visakhapatnam', state: 'Andhra Pradesh', enabled: false, coords: { lat: 17.6868, lng: 83.2185 } },
+  { id: 'guntur', name: 'Guntur', state: 'Andhra Pradesh', enabled: false, coords: { lat: 16.3067, lng: 80.4365 } },
+  { id: 'warangal', name: 'Warangal', state: 'Telangana', enabled: false, coords: { lat: 17.9784, lng: 79.5941 } },
+  { id: 'secunderabad', name: 'Secunderabad', state: 'Telangana', enabled: false, coords: { lat: 17.4399, lng: 78.4983 } },
+  { id: 'tirupati', name: 'Tirupati', state: 'Andhra Pradesh', enabled: false, coords: { lat: 13.6288, lng: 79.4192 } },
+  { id: 'kakinada', name: 'Kakinada', state: 'Andhra Pradesh', enabled: false, coords: { lat: 16.9891, lng: 82.2475 } },
+  { id: 'rajahmundry', name: 'Rajahmundry', state: 'Andhra Pradesh', enabled: false, coords: { lat: 17.0005, lng: 81.8040 } },
+  { id: 'nellore', name: 'Nellore', state: 'Andhra Pradesh', enabled: false, coords: { lat: 14.4426, lng: 79.9865 } },
+  { id: 'kurnool', name: 'Kurnool', state: 'Andhra Pradesh', enabled: false, coords: { lat: 15.8281, lng: 78.0373 } },
 ];
-
-export const ENABLED_TOWNS = DEFAULT_TOWNS.filter((town) => town.enabled);
 
 /** Navigation categories with dropdown items */
 export const NAV_CATEGORIES: NavCategory[] = [

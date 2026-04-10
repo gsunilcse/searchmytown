@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { isDirectoryModuleKey } from '@/config/modules';
 import { isTownId } from '@/config/towns';
 import { createListing } from '@/lib/submissions';
+import { isTownEnabled } from '@/lib/town-settings';
 
 export const runtime = 'nodejs';
 
@@ -13,6 +14,10 @@ export async function POST(request: Request) {
 
     if (!isTownId(townId)) {
       return NextResponse.json({ error: 'Unsupported town.' }, { status: 400 });
+    }
+
+    if (!(await isTownEnabled(townId))) {
+      return NextResponse.json({ error: 'That town is not enabled for public submissions.' }, { status: 400 });
     }
 
     if (!isDirectoryModuleKey(moduleKey)) {

@@ -11,6 +11,7 @@ import path from 'path';
 import { getModuleDefinition, MODULE_KEYS, type DirectoryModuleKey } from '@/config/modules';
 import { getTownById } from '@/config/towns';
 import { getFirestoreAdmin, isFirestoreConfigured } from '@/lib/firestore-admin';
+import { isTownEnabled } from '@/lib/town-settings';
 
 export type SubmissionStatus = 'pending' | 'approved' | 'rejected';
 
@@ -106,10 +107,14 @@ function getCollectionName(moduleKey: DirectoryModuleKey): string {
   return moduleDefinition.collectionName;
 }
 
-function validateInput(input: ListingInput) {
+async function validateInput(input: ListingInput) {
   const town = getTownById(input.townId);
   if (!town) {
     throw new Error('Unsupported town.');
+  }
+
+  if (!(await isTownEnabled(input.townId))) {
+    throw new Error('That town is not enabled for public submissions.');
   }
 
   const moduleDefinition = getModuleDefinition(input.moduleKey);
@@ -191,7 +196,7 @@ export async function getApprovedListings(townId: string, moduleKey: DirectoryMo
 }
 
 export async function createListing(input: ListingInput): Promise<ListingRecord> {
-  const town = validateInput(input);
+  const town = await validateInput(input);
   const now = new Date().toISOString();
   const record: ListingRecord = {
     id: crypto.randomUUID(),

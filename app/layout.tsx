@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Fraunces, Manrope } from "next/font/google";
 import "./globals.css";
+import { getRootMetadata } from '@/lib/seo';
 
 const manrope = Manrope({
   variable: "--font-manrope",
@@ -12,10 +13,7 @@ const fraunces = Fraunces({
   subsets: ["latin"],
 });
 
-export const metadata: Metadata = {
-  title: "searchmytown.com | Town-first local discovery",
-  description: "searchmytown.com helps people discover town-specific news, schools, businesses, events, health, food, travel, and helpers.",
-};
+export const metadata: Metadata = getRootMetadata();
 
 export default function RootLayout({
   children,

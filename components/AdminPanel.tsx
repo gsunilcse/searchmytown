@@ -3,12 +3,14 @@
 import { signOut } from 'next-auth/react';
 import { useMemo, useState } from 'react';
 import { MODULE_DEFINITIONS, MODULE_KEYS, type DirectoryModuleKey } from '@/config/modules';
+import type { Town } from '@/config/towns';
 import type { ListingRecord, SubmissionStatus } from '@/lib/submissions';
 
 const UTC_MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 type AdminPanelProps = {
   initialListings: ListingRecord[];
+  initialTowns: Town[];
   adminEmail?: string | null;
 };
 
@@ -48,12 +50,31 @@ async function updateSubmissionStatus(moduleKey: DirectoryModuleKey, id: string,
   return data.record;
 }
 
-export default function AdminPanel({ initialListings, adminEmail = null }: AdminPanelProps) {
+async function updateTownEnabledSetting(townId: string, enabled: boolean) {
+  const response = await fetch('/api/admin/towns', {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ townId, enabled }),
+  });
+
+  const data = (await response.json()) as { error?: string; towns?: Town[] };
+  if (!response.ok || !data.towns) {
+    throw new Error(data.error ?? 'Unable to update town availability.');
+  }
+
+  return data.towns;
+}
+
+export default function AdminPanel({ initialListings, initialTowns, adminEmail = null }: AdminPanelProps) {
   const [listings, setListings] = useState(initialListings);
+  const [towns, setTowns] = useState(initialTowns);
   const [statusFilter, setStatusFilter] = useState<'all' | SubmissionStatus>('pending');
   const [moduleFilter, setModuleFilter] = useState<'all' | DirectoryModuleKey>('all');
   const [townFilter, setTownFilter] = useState<'all' | string>('all');
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [busyTownId, setBusyTownId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const summary = useMemo(() => {
@@ -73,13 +94,10 @@ export default function AdminPanel({ initialListings, adminEmail = null }: Admin
   }, [listings]);
 
   const townOptions = useMemo(() => {
-    return Array.from(new Set(listings.map((listing) => `${listing.townId}|${listing.townName}`)))
-      .map((value) => {
-        const [id, name] = value.split('|');
-        return { id, name };
-      })
+    return towns
+      .map((town) => ({ id: town.id, name: town.name }))
       .sort((left, right) => left.name.localeCompare(right.name));
-  }, [listings]);
+  }, [towns]);
 
   const filteredListings = useMemo(() => {
     return listings.filter((listing) => {
@@ -123,6 +141,20 @@ export default function AdminPanel({ initialListings, adminEmail = null }: Admin
     await signOut({ callbackUrl: '/admin' });
   }
 
+  async function handleTownToggle(townId: string, enabled: boolean) {
+    setBusyTownId(townId);
+    setErrorMessage(null);
+
+    try {
+      const updatedTowns = await updateTownEnabledSetting(townId, enabled);
+      setTowns(updatedTowns);
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Unable to update town availability.');
+    } finally {
+      setBusyTownId(null);
+    }
+  }
+
   return (
     <div className="space-y-8">
       <section className="rounded-[2rem] border border-slate-200 bg-white/92 p-6 shadow-[0_24px_64px_rgba(15,23,42,0.1)] sm:p-8">
@@ -163,6 +195,53 @@ export default function AdminPanel({ initialListings, adminEmail = null }: Admin
             <div className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-600">Rejected</div>
             <div className="mt-3 text-3xl font-semibold text-slate-950">{summary.rejected}</div>
           </div>
+        </div>
+      </section>
+
+      <section className="rounded-[2rem] border border-slate-200 bg-white/92 p-6 shadow-[0_24px_64px_rgba(15,23,42,0.1)] sm:p-8">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Town access</p>
+            <h2 className="mt-3 font-display text-3xl text-slate-950">Control which towns are live</h2>
+          </div>
+          <p className="max-w-2xl text-sm leading-7 text-slate-600">
+            Only enabled towns appear on the landing page, in the sitemap, and on public routes. Start with Ramachandrapuram and enable more towns when they are ready.
+          </p>
+        </div>
+
+        <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {towns.map((town) => (
+            <div key={town.id} className="rounded-[1.6rem] border border-slate-200 bg-slate-50/80 p-5 shadow-[0_14px_30px_rgba(15,23,42,0.05)]">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <div className="text-lg font-semibold text-slate-950">{town.name}</div>
+                  <div className="mt-1 text-sm text-slate-500">{town.state}</div>
+                </div>
+                <span className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] ${town.enabled ? 'bg-slate-950 text-white' : 'bg-white text-slate-700'}`}>
+                  {town.enabled ? 'Enabled' : 'Hidden'}
+                </span>
+              </div>
+
+              <div className="mt-5 flex gap-3">
+                <button
+                  type="button"
+                  disabled={busyTownId === town.id || town.enabled}
+                  onClick={() => handleTownToggle(town.id, true)}
+                  className="rounded-full bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {busyTownId === town.id ? 'Updating...' : 'Enable'}
+                </button>
+                <button
+                  type="button"
+                  disabled={busyTownId === town.id || !town.enabled}
+                  onClick={() => handleTownToggle(town.id, false)}
+                  className="rounded-full border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-900 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {busyTownId === town.id ? 'Updating...' : 'Hide'}
+                </button>
+              </div>
+            </div>
+          ))}
         </div>
       </section>
 

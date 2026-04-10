@@ -1,8 +1,12 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import PublishForm from '@/components/PublishForm';
 import { getModuleDefinition, getTownModulePath, isDirectoryModuleKey } from '@/config/modules';
-import { getTownById } from '@/config/towns';
+import { buildPublishMetadata } from '@/lib/seo';
+import { getEnabledTownById } from '@/lib/town-settings';
+
+export const dynamic = 'force-dynamic';
 
 type PublishPageProps = {
   params: Promise<{
@@ -11,9 +15,26 @@ type PublishPageProps = {
   }>;
 };
 
+export async function generateMetadata({ params }: PublishPageProps): Promise<Metadata> {
+  const { module, town } = await params;
+  const selectedTown = await getEnabledTownById(town);
+  const moduleDefinition = getModuleDefinition(module);
+
+  if (!selectedTown || !isDirectoryModuleKey(module) || !moduleDefinition) {
+    return {
+      robots: {
+        index: false,
+        follow: false,
+      },
+    };
+  }
+
+  return buildPublishMetadata(selectedTown, moduleDefinition);
+}
+
 export default async function PublishPage({ params }: PublishPageProps) {
   const { module, town } = await params;
-  const selectedTown = getTownById(town);
+  const selectedTown = await getEnabledTownById(town);
 
   if (!selectedTown || !isDirectoryModuleKey(module)) {
     notFound();

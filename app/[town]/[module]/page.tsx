@@ -1,8 +1,10 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getModuleDefinition, getTownPublishPath, isDirectoryModuleKey } from '@/config/modules';
-import { getTownById } from '@/config/towns';
+import { buildModuleMetadata, getModuleJsonLd, getModuleSeoContent } from '@/lib/seo';
 import { getApprovedListings } from '@/lib/submissions';
+import { getEnabledTownById } from '@/lib/town-settings';
 
 type ModulePageProps = {
   params: Promise<{
@@ -13,9 +15,21 @@ type ModulePageProps = {
 
 export const dynamic = 'force-dynamic';
 
+export async function generateMetadata({ params }: ModulePageProps): Promise<Metadata> {
+  const { module, town } = await params;
+  const selectedTown = await getEnabledTownById(town);
+  const moduleDefinition = getModuleDefinition(module);
+
+  if (!selectedTown || !isDirectoryModuleKey(module) || !moduleDefinition) {
+    return {};
+  }
+
+  return buildModuleMetadata(selectedTown, moduleDefinition);
+}
+
 export default async function ModulePage({ params }: ModulePageProps) {
   const { module, town } = await params;
-  const selectedTown = getTownById(town);
+  const selectedTown = await getEnabledTownById(town);
 
   if (!selectedTown || !isDirectoryModuleKey(module)) {
     notFound();
@@ -27,9 +41,18 @@ export default async function ModulePage({ params }: ModulePageProps) {
   }
 
   const listings = await getApprovedListings(selectedTown.id, module);
+  const seoContent = getModuleSeoContent(selectedTown, moduleDefinition);
+  const moduleJsonLd = getModuleJsonLd(selectedTown, moduleDefinition, listings);
 
   return (
     <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col px-4 py-10 sm:px-6 lg:px-8 lg:py-14">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(moduleJsonLd),
+        }}
+      />
+
       <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">{selectedTown.name}</p>
@@ -54,9 +77,24 @@ export default async function ModulePage({ params }: ModulePageProps) {
         </div>
       </div>
 
+      <section className="mt-10 rounded-[1.8rem] border border-slate-200 bg-white/90 p-6 shadow-[0_20px_55px_rgba(15,23,42,0.06)] sm:p-8">
+        <h2 className="text-2xl font-semibold text-slate-950 sm:text-3xl">{seoContent.heading}</h2>
+        <p className="mt-4 max-w-4xl text-sm leading-7 text-slate-600 sm:text-base">{seoContent.intro}</p>
+        <div className="mt-6 flex flex-wrap gap-3">
+          {seoContent.relatedSearches.map((term) => (
+            <span
+              key={term}
+              className="rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-medium text-slate-700"
+            >
+              {term}
+            </span>
+          ))}
+        </div>
+      </section>
+
       <section className="mt-10 grid gap-5 lg:grid-cols-2 xl:grid-cols-3">
         {listings.map((listing) => (
-          <article key={listing.id} className="rounded-[1.8rem] border border-slate-200 bg-white/92 p-6 shadow-[0_20px_55px_rgba(15,23,42,0.08)]">
+          <article id={listing.id} key={listing.id} className="rounded-[1.8rem] border border-slate-200 bg-white/92 p-6 shadow-[0_20px_55px_rgba(15,23,42,0.08)]">
             <div className="flex items-center gap-3 text-sm font-semibold text-slate-500">
               <span className="grid h-12 w-12 place-items-center rounded-2xl" style={{ backgroundColor: `${moduleDefinition.accent}22`, color: moduleDefinition.accent }}>
                 {moduleDefinition.icon}

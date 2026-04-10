@@ -1,10 +1,22 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import AdminLoginCard from '@/components/AdminLoginCard';
 import AdminPanel from '@/components/AdminPanel';
 import { getAdminSession, isAdminAuthConfigured } from '@/lib/admin-auth';
+import { buildMetadata } from '@/lib/seo';
 import { getAllListings } from '@/lib/submissions';
+import { getManagedTowns } from '@/lib/town-settings';
 
 export const dynamic = 'force-dynamic';
+export const metadata: Metadata = buildMetadata({
+  title: 'Admin moderation',
+  description: 'SearchMyTown admin moderation workspace.',
+  path: '/admin',
+  robots: {
+    index: false,
+    follow: false,
+  },
+});
 
 type AdminPageProps = {
   searchParams: Promise<{
@@ -47,7 +59,7 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
       ) : !session ? (
         <AdminLoginCard errorMessage={getAuthErrorMessage(params.error)} />
       ) : (
-        <AdminPanel initialListings={await getAllListings()} adminEmail={session.user?.email ?? null} />
+        <AdminPanel initialListings={await getAllListings()} initialTowns={await getManagedTowns()} adminEmail={session.user?.email ?? null} />
       )}
     </main>
   );

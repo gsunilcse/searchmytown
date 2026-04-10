@@ -5,8 +5,6 @@ import { useRouter } from 'next/navigation';
 import { startTransition, useDeferredValue, useEffect, useMemo, useState } from 'react';
 import { getTownModulePath, getTownPublishPath } from '@/config/modules';
 import {
-  ENABLED_TOWNS,
-  getTownById,
   getTownPath,
   NAV_CATEGORIES,
   QUICK_CARDS,
@@ -16,6 +14,7 @@ import {
 
 type TownPortalProps = {
   initialTownId?: string | null;
+  availableTowns: Town[];
 };
 
 type HeroSlide = {
@@ -135,8 +134,8 @@ function getDistanceInKm(from: { lat: number; lng: number }, to: { lat: number; 
   return earthRadiusKm * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-function findNearestTown(latitude: number, longitude: number): Town | null {
-  const townsWithCoords = ENABLED_TOWNS.filter((town) => town.coords);
+function findNearestTown(latitude: number, longitude: number, availableTowns: Town[]): Town | null {
+  const townsWithCoords = availableTowns.filter((town) => town.coords);
   if (townsWithCoords.length === 0) {
     return null;
   }
@@ -212,10 +211,10 @@ function CategoryMenu({
   );
 }
 
-export default function TownPortal({ initialTownId = null }: TownPortalProps) {
+export default function TownPortal({ initialTownId = null, availableTowns }: TownPortalProps) {
   const router = useRouter();
   const [activeTownId, setActiveTownId] = useState<string | null>(initialTownId);
-  const [isLocationModalOpen, setIsLocationModalOpen] = useState(initialTownId === null);
+  const [isLocationModalOpen, setIsLocationModalOpen] = useState(initialTownId === null && availableTowns.length > 1);
   const [locationQuery, setLocationQuery] = useState('');
   const [detectMessage, setDetectMessage] = useState<string | null>(null);
   const [isDetecting, setIsDetecting] = useState(false);
@@ -226,23 +225,23 @@ export default function TownPortal({ initialTownId = null }: TownPortalProps) {
 
   const selectedTown = useMemo(() => {
     if (activeTownId) {
-      return getTownById(activeTownId) ?? ENABLED_TOWNS[0] ?? null;
+      return availableTowns.find((town) => town.id === activeTownId) ?? availableTowns[0] ?? null;
     }
 
-    return ENABLED_TOWNS[0] ?? null;
-  }, [activeTownId]);
+    return availableTowns[0] ?? null;
+  }, [activeTownId, availableTowns]);
 
   const filteredTowns = useMemo(() => {
     const normalizedQuery = deferredQuery.trim().toLowerCase();
     if (!normalizedQuery) {
-      return ENABLED_TOWNS;
+      return availableTowns;
     }
 
-    return ENABLED_TOWNS.filter((town) => {
+    return availableTowns.filter((town) => {
       const haystack = `${town.name} ${town.state}`.toLowerCase();
       return haystack.includes(normalizedQuery);
     });
-  }, [deferredQuery]);
+  }, [availableTowns, deferredQuery]);
 
   const heroSlides = useMemo(() => (selectedTown ? buildHeroSlides(selectedTown) : []), [selectedTown]);
   const newsItems = useMemo(() => (selectedTown ? buildNews(selectedTown) : []), [selectedTown]);
@@ -283,7 +282,7 @@ export default function TownPortal({ initialTownId = null }: TownPortalProps) {
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        const nearestTown = findNearestTown(position.coords.latitude, position.coords.longitude);
+        const nearestTown = findNearestTown(position.coords.latitude, position.coords.longitude, availableTowns);
         setIsDetecting(false);
 
         if (!nearestTown) {
@@ -310,7 +309,22 @@ export default function TownPortal({ initialTownId = null }: TownPortalProps) {
   }
 
   if (!selectedTown) {
-    return null;
+    return (
+      <main className="mx-auto flex min-h-screen max-w-3xl flex-col justify-center px-6 py-20 text-center">
+        <h1 className="font-display text-4xl text-slate-950">No towns are enabled right now</h1>
+        <p className="mt-4 text-base leading-8 text-slate-600">
+          Enable at least one town in the admin panel before publishing the public directory.
+        </p>
+        <div className="mt-8">
+          <Link
+            href="/admin"
+            className="inline-flex rounded-full border border-slate-950 bg-slate-950 px-6 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
+          >
+            Open admin
+          </Link>
+        </div>
+      </main>
+    );
   }
 
   const activeSlide = heroSlides[activeSlideIndex] ?? heroSlides[0];
@@ -369,16 +383,18 @@ export default function TownPortal({ initialTownId = null }: TownPortalProps) {
           <div className="border-t border-white/15 px-4 pb-4 xl:hidden">
             <div className="space-y-3 pt-4">
               <div className="grid gap-3 sm:grid-cols-2">
-                <button
-                  type="button"
-                  onClick={() => setIsLocationModalOpen(true)}
-                  className="w-full rounded-2xl bg-white/10 px-4 py-3 text-left text-sm font-semibold text-white"
-                >
-                  Change town: {selectedTown.name}
-                </button>
+                {availableTowns.length > 1 ? (
+                  <button
+                    type="button"
+                    onClick={() => setIsLocationModalOpen(true)}
+                    className="w-full rounded-2xl bg-white/10 px-4 py-3 text-left text-sm font-semibold text-white"
+                  >
+                    Change town: {selectedTown.name}
+                  </button>
+                ) : null}
                 <Link
                   href="/admin"
-                  className="block rounded-2xl bg-white px-4 py-3 text-center text-sm font-semibold text-slate-900"
+                  className={`block rounded-2xl bg-white px-4 py-3 text-center text-sm font-semibold text-slate-900 ${availableTowns.length > 1 ? '' : 'sm:col-span-2'}`}
                 >
                   Admin
                 </Link>
