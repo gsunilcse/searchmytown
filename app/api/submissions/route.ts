@@ -1,0 +1,42 @@
+import { NextResponse } from 'next/server';
+import { isDirectoryModuleKey } from '@/config/modules';
+import { isTownId } from '@/config/towns';
+import { createListing } from '@/lib/submissions';
+
+export const runtime = 'nodejs';
+
+export async function POST(request: Request) {
+  try {
+    const body = (await request.json()) as Record<string, unknown>;
+    const townId = typeof body.townId === 'string' ? body.townId : '';
+    const moduleKey = typeof body.moduleKey === 'string' ? body.moduleKey : '';
+
+    if (!isTownId(townId)) {
+      return NextResponse.json({ error: 'Unsupported town.' }, { status: 400 });
+    }
+
+    if (!isDirectoryModuleKey(moduleKey)) {
+      return NextResponse.json({ error: 'Unsupported module.' }, { status: 400 });
+    }
+
+    const record = await createListing({
+      townId,
+      moduleKey,
+      title: typeof body.title === 'string' ? body.title : '',
+      summary: typeof body.summary === 'string' ? body.summary : '',
+      description: typeof body.description === 'string' ? body.description : '',
+      contactName: typeof body.contactName === 'string' ? body.contactName : '',
+      phone: typeof body.phone === 'string' ? body.phone : '',
+      email: typeof body.email === 'string' ? body.email : '',
+      address: typeof body.address === 'string' ? body.address : '',
+      website: typeof body.website === 'string' ? body.website : '',
+    });
+
+    return NextResponse.json({ record }, { status: 201 });
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Unable to create submission.' },
+      { status: 400 }
+    );
+  }
+}

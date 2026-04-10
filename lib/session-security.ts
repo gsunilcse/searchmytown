@@ -1,0 +1,6 @@
+export const SESSION_MAX_AGE_SECONDS = 30 * 60;
+export const SESSION_UPDATE_AGE_SECONDS = 5 * 60;
+export const SESSION_IDLE_TIMEOUT_MS = 10 * 60 * 1000;
+export const SESSION_WARNING_DURATION_MS = 60 * 1000;
+export const SESSION_HIDDEN_TAB_REAUTH_MS = SESSION_IDLE_TIMEOUT_MS;
+export const SESSION_ACTIVITY_STORAGE_KEY = 'mytown:last-activity';
