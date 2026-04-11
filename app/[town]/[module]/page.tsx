@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getModuleDefinition, getTownPublishPath, isDirectoryModuleKey } from '@/config/modules';
+import { canPublish, getAppViewer } from '@/lib/auth';
 import { buildModuleMetadata, getModuleJsonLd, getModuleSeoContent } from '@/lib/seo';
 import { getApprovedListings } from '@/lib/submissions';
 import { getEnabledTownById } from '@/lib/town-settings';
@@ -41,8 +42,15 @@ export default async function ModulePage({ params }: ModulePageProps) {
   }
 
   const listings = await getApprovedListings(selectedTown.id, module);
+  const viewer = await getAppViewer();
   const seoContent = getModuleSeoContent(selectedTown, moduleDefinition);
   const moduleJsonLd = getModuleJsonLd(selectedTown, moduleDefinition, listings);
+  const publishHref = canPublish(viewer, selectedTown.id)
+    ? getTownPublishPath(selectedTown.id, module)
+    : `/login?intent=publisher&town=${selectedTown.id}&callbackUrl=${encodeURIComponent(getTownPublishPath(selectedTown.id, module))}`;
+  const publishLabel = canPublish(viewer, selectedTown.id)
+    ? moduleDefinition.publishTitle
+    : `Login / Signup to ${moduleDefinition.publishTitle.toLowerCase()}`;
 
   return (
     <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col px-4 py-10 sm:px-6 lg:px-8 lg:py-14">
@@ -69,10 +77,10 @@ export default async function ModulePage({ params }: ModulePageProps) {
             Back to dashboard
           </Link>
           <Link
-            href={getTownPublishPath(selectedTown.id, module)}
+            href={publishHref}
             className="rounded-full border border-slate-950 bg-white px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-slate-100"
           >
-            {moduleDefinition.publishTitle}
+            {publishLabel}
           </Link>
         </div>
       </div>
@@ -126,10 +134,10 @@ export default async function ModulePage({ params }: ModulePageProps) {
                 Be the first to submit a {moduleDefinition.singularLabel.toLowerCase()} for {selectedTown.name}. It will appear here after admin review.
               </p>
               <Link
-                href={getTownPublishPath(selectedTown.id, module)}
+                href={publishHref}
                 className="mt-6 inline-flex rounded-full border border-slate-950 bg-white px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-slate-100"
               >
-                {moduleDefinition.publishTitle}
+                {publishLabel}
               </Link>
             </div>
           </div>

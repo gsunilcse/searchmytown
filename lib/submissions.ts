@@ -30,6 +30,8 @@ export type ListingRecord = {
   email: string;
   address: string;
   website: string;
+  submittedByEmail: string;
+  submittedByName: string;
   submittedAt: string;
   updatedAt: string;
   reviewedAt: string | null;
@@ -47,6 +49,8 @@ export type ListingInput = {
   email: string;
   address: string;
   website: string;
+  submittedByEmail: string;
+  submittedByName: string;
 };
 
 const DATA_FILE_PATH = path.join(process.cwd(), 'data', 'town-submissions.json');
@@ -86,6 +90,8 @@ function normalizeRecord(id: string, raw: Partial<ListingRecord>): ListingRecord
     email: raw.email ?? '',
     address: raw.address ?? '',
     website: raw.website ?? '',
+    submittedByEmail: raw.submittedByEmail?.trim().toLowerCase() ?? '',
+    submittedByName: raw.submittedByName ?? '',
     submittedAt: toIsoString(raw.submittedAt),
     updatedAt: toIsoString(raw.updatedAt),
     reviewedAt: raw.reviewedAt ? toIsoString(raw.reviewedAt) : null,
@@ -128,6 +134,10 @@ async function validateInput(input: ListingInput) {
 
   if (!input.phone.trim() && !input.email.trim()) {
     throw new Error('Provide at least a phone number or email address.');
+  }
+
+  if (!input.submittedByEmail.trim()) {
+    throw new Error('A signed-in publisher account is required.');
   }
 
   return town;
@@ -195,6 +205,22 @@ export async function getApprovedListings(townId: string, moduleKey: DirectoryMo
     .sort((left, right) => right.submittedAt.localeCompare(left.submittedAt));
 }
 
+export async function getListingsBySubmitter(email: string): Promise<ListingRecord[]> {
+  const normalizedEmail = email.trim().toLowerCase();
+  const allItems = await getListingsWithFallback();
+
+  return allItems.filter(
+    (item) =>
+      item.submittedByEmail === normalizedEmail ||
+      (!item.submittedByEmail && item.email.trim().toLowerCase() === normalizedEmail)
+  );
+}
+
+export async function getListingById(moduleKey: DirectoryModuleKey, id: string): Promise<ListingRecord | null> {
+  const items = await getListingsWithFallback();
+  return items.find((item) => item.id === id && item.moduleKey === moduleKey) ?? null;
+}
+
 export async function createListing(input: ListingInput): Promise<ListingRecord> {
   const town = await validateInput(input);
   const now = new Date().toISOString();
@@ -213,6 +239,8 @@ export async function createListing(input: ListingInput): Promise<ListingRecord>
     email: input.email.trim(),
     address: input.address.trim(),
     website: input.website.trim(),
+    submittedByEmail: input.submittedByEmail.trim().toLowerCase(),
+    submittedByName: input.submittedByName.trim(),
     submittedAt: now,
     updatedAt: now,
     reviewedAt: null,

@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import TownPortal from '@/components/TownPortal';
+import { getAppViewer } from '@/lib/auth';
 import { buildMetadata, getWebsiteJsonLd } from '@/lib/seo';
 import { getEnabledTowns } from '@/lib/town-settings';
 
@@ -14,7 +15,7 @@ export const metadata: Metadata = buildMetadata({
 });
 
 export default async function Home() {
-  const enabledTowns = await getEnabledTowns();
+  const [enabledTowns, viewer] = await Promise.all([getEnabledTowns(), getAppViewer()]);
 
   return (
     <>
@@ -24,7 +25,11 @@ export default async function Home() {
           __html: JSON.stringify(getWebsiteJsonLd()),
         }}
       />
-      <TownPortal initialTownId={enabledTowns.length === 1 ? enabledTowns[0]?.id ?? null : null} availableTowns={enabledTowns} />
+      <TownPortal
+        initialTownId={enabledTowns.length === 1 ? enabledTowns[0]?.id ?? null : null}
+        availableTowns={enabledTowns}
+        viewer={viewer}
+      />
     </>
   );
 }

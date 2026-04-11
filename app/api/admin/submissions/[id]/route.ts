@@ -1,12 +1,13 @@
 import { NextResponse } from 'next/server';
 import { isDirectoryModuleKey } from '@/config/modules';
-import { hasAdminSession } from '@/lib/admin-auth';
-import { updateListingStatus } from '@/lib/submissions';
+import { canAccessAdmin, canModerateTown, getAppViewer } from '@/lib/auth';
+import { getListingById, updateListingStatus } from '@/lib/submissions';
 
 export const runtime = 'nodejs';
 
 export async function PATCH(request: Request, context: RouteContext<'/api/admin/submissions/[id]'>) {
-  if (!(await hasAdminSession())) {
+  const viewer = await getAppViewer();
+  if (!canAccessAdmin(viewer)) {
     return NextResponse.json({ error: 'Unauthorized admin access.' }, { status: 401 });
   }
 
@@ -23,6 +24,15 @@ export async function PATCH(request: Request, context: RouteContext<'/api/admin/
   }
 
   try {
+    const existingRecord = await getListingById(body.moduleKey, id);
+    if (!existingRecord) {
+      return NextResponse.json({ error: 'Submission not found.' }, { status: 404 });
+    }
+
+    if (!canModerateTown(viewer, existingRecord.townId)) {
+      return NextResponse.json({ error: 'You do not have moderation access for this town.' }, { status: 403 });
+    }
+
     const record = await updateListingStatus(body.moduleKey, id, status, body.moderationNote ?? '');
     return NextResponse.json({ record });
   } catch (error) {

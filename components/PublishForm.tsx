@@ -90,6 +90,7 @@ export default function PublishForm({ town, moduleDefinition }: PublishFormProps
             value={formState.title}
             onChange={(event) => updateField('title', event.target.value)}
             placeholder={moduleDefinition.titlePlaceholder}
+            suppressHydrationWarning
             className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:bg-white"
           />
         </label>
@@ -101,6 +102,7 @@ export default function PublishForm({ town, moduleDefinition }: PublishFormProps
             value={formState.summary}
             onChange={(event) => updateField('summary', event.target.value)}
             placeholder={moduleDefinition.summaryPlaceholder}
+            suppressHydrationWarning
             className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:bg-white"
           />
         </label>
@@ -112,6 +114,7 @@ export default function PublishForm({ town, moduleDefinition }: PublishFormProps
             value={formState.description}
             onChange={(event) => updateField('description', event.target.value)}
             placeholder="Add key details, timings, services, specialties, or anything visitors should know."
+            suppressHydrationWarning
             className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:bg-white"
           />
         </label>
@@ -123,6 +126,7 @@ export default function PublishForm({ town, moduleDefinition }: PublishFormProps
             value={formState.contactName}
             onChange={(event) => updateField('contactName', event.target.value)}
             placeholder="Contact person or business owner"
+            suppressHydrationWarning
             className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:bg-white"
           />
         </label>
@@ -133,6 +137,7 @@ export default function PublishForm({ town, moduleDefinition }: PublishFormProps
             value={formState.phone}
             onChange={(event) => updateField('phone', event.target.value)}
             placeholder="Primary phone number"
+            suppressHydrationWarning
             className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:bg-white"
           />
         </label>
@@ -144,6 +149,7 @@ export default function PublishForm({ town, moduleDefinition }: PublishFormProps
             value={formState.email}
             onChange={(event) => updateField('email', event.target.value)}
             placeholder="Contact email"
+            suppressHydrationWarning
             className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:bg-white"
           />
         </label>
@@ -154,6 +160,7 @@ export default function PublishForm({ town, moduleDefinition }: PublishFormProps
             value={formState.website}
             onChange={(event) => updateField('website', event.target.value)}
             placeholder="https://example.com"
+            suppressHydrationWarning
             className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:bg-white"
           />
         </label>
@@ -165,6 +172,7 @@ export default function PublishForm({ town, moduleDefinition }: PublishFormProps
             value={formState.address}
             onChange={(event) => updateField('address', event.target.value)}
             placeholder={`Street, area, landmark in ${town.name}`}
+            suppressHydrationWarning
             className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:bg-white"
           />
         </label>
@@ -180,6 +188,7 @@ export default function PublishForm({ town, moduleDefinition }: PublishFormProps
       <button
         type="submit"
         disabled={isSubmitting}
+        suppressHydrationWarning
         className="rounded-full bg-slate-950 px-6 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-wait disabled:opacity-70"
       >
         {isSubmitting ? 'Submitting...' : moduleDefinition.submitButtonLabel}

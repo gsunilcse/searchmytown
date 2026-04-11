@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { isDirectoryModuleKey } from '@/config/modules';
 import { isTownId } from '@/config/towns';
+import { canPublish, getAppViewer } from '@/lib/auth';
 import { createListing } from '@/lib/submissions';
 import { isTownEnabled } from '@/lib/town-settings';
 
@@ -8,6 +9,11 @@ export const runtime = 'nodejs';
 
 export async function POST(request: Request) {
   try {
+    const viewer = await getAppViewer();
+    if (!viewer.email) {
+      return NextResponse.json({ error: 'Login is required before you can submit a publish request.' }, { status: 401 });
+    }
+
     const body = (await request.json()) as Record<string, unknown>;
     const townId = typeof body.townId === 'string' ? body.townId : '';
     const moduleKey = typeof body.moduleKey === 'string' ? body.moduleKey : '';
@@ -18,6 +24,10 @@ export async function POST(request: Request) {
 
     if (!(await isTownEnabled(townId))) {
       return NextResponse.json({ error: 'That town is not enabled for public submissions.' }, { status: 400 });
+    }
+
+    if (!canPublish(viewer, townId)) {
+      return NextResponse.json({ error: 'Publisher signup approval is required for this town before you can submit a publish request.' }, { status: 403 });
     }
 
     if (!isDirectoryModuleKey(moduleKey)) {
@@ -35,6 +45,8 @@ export async function POST(request: Request) {
       email: typeof body.email === 'string' ? body.email : '',
       address: typeof body.address === 'string' ? body.address : '',
       website: typeof body.website === 'string' ? body.website : '',
+      submittedByEmail: viewer.email,
+      submittedByName: viewer.name ?? '',
     });
 
     return NextResponse.json({ record }, { status: 201 });

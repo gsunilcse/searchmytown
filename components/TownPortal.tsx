@@ -1,9 +1,11 @@
 'use client';
 
 import Link from 'next/link';
+import { signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { startTransition, useDeferredValue, useEffect, useMemo, useState } from 'react';
 import { getTownModulePath, getTownPublishPath } from '@/config/modules';
+import type { AppViewer } from '@/lib/auth';
 import {
   getTownPath,
   NAV_CATEGORIES,
@@ -15,6 +17,7 @@ import {
 type TownPortalProps = {
   initialTownId?: string | null;
   availableTowns: Town[];
+  viewer: AppViewer;
 };
 
 type HeroSlide = {
@@ -49,6 +52,10 @@ function getNavItemHref(townId: string, item: NavCategory['items'][number]): str
   return item.action === 'publish'
     ? getTownPublishPath(townId, item.moduleKey)
     : getTownModulePath(townId, item.moduleKey);
+}
+
+function getTownLoginPath(townId: string): string {
+  return `/login?town=${encodeURIComponent(townId)}`;
 }
 
 function buildHeroSlides(town: Town): HeroSlide[] {
@@ -170,20 +177,20 @@ function CategoryMenu({
 }) {
   return (
     <div
-      className="relative pb-3"
+      className="relative shrink-0 pb-3"
       onMouseEnter={onOpen}
       onMouseLeave={onClose}
     >
       <button
         type="button"
-        className="flex items-center gap-2 whitespace-nowrap rounded-full px-2.5 py-2 text-[13px] font-semibold text-white/90 transition hover:bg-white/10 hover:text-white 2xl:px-3 2xl:text-sm"
+        className="flex h-9 items-center gap-1.5 whitespace-nowrap rounded-full px-2 py-2 text-xs font-semibold text-white/90 transition hover:bg-white/10 hover:text-white 2xl:h-10 2xl:gap-2 2xl:px-3 2xl:text-[13px]"
         onFocus={onOpen}
         onClick={onOpen}
         aria-expanded={active}
       >
         <span>{category.icon}</span>
         <span>{category.label}</span>
-        <span className="text-[10px] text-white/70">▼</span>
+        <span className="text-[9px] text-white/70 2xl:text-[10px]">▼</span>
       </button>
 
       {active ? (
@@ -211,7 +218,7 @@ function CategoryMenu({
   );
 }
 
-export default function TownPortal({ initialTownId = null, availableTowns }: TownPortalProps) {
+export default function TownPortal({ initialTownId = null, availableTowns, viewer }: TownPortalProps) {
   const router = useRouter();
   const [activeTownId, setActiveTownId] = useState<string | null>(initialTownId);
   const [isLocationModalOpen, setIsLocationModalOpen] = useState(initialTownId === null && availableTowns.length > 1);
@@ -221,6 +228,7 @@ export default function TownPortal({ initialTownId = null, availableTowns }: Tow
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
   const [activeSlideIndex, setActiveSlideIndex] = useState(0);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const deferredQuery = useDeferredValue(locationQuery);
 
   const selectedTown = useMemo(() => {
@@ -246,6 +254,25 @@ export default function TownPortal({ initialTownId = null, availableTowns }: Tow
   const heroSlides = useMemo(() => (selectedTown ? buildHeroSlides(selectedTown) : []), [selectedTown]);
   const newsItems = useMemo(() => (selectedTown ? buildNews(selectedTown) : []), [selectedTown]);
   const storyItems = useMemo(() => buildTownStory(), []);
+  const canAccessAdminWorkspace = viewer.roles.includes('townadmin') || viewer.roles.includes('super-admin');
+  const visibleCategories = useMemo(
+    () => {
+      if (!selectedTown) {
+        return NAV_CATEGORIES.map((category) => ({
+          ...category,
+          items: category.items.filter((item) => item.action === 'browse'),
+        }));
+      }
+
+      const canPublishForSelectedTown = viewer.roles.includes('publisher') && viewer.publisherTownIds.includes(selectedTown.id);
+
+      return NAV_CATEGORIES.map((category) => ({
+        ...category,
+        items: category.items.filter((item) => item.action === 'browse' || canPublishForSelectedTown),
+      }));
+    },
+    [selectedTown, viewer.publisherTownIds, viewer.roles]
+  );
 
   useEffect(() => {
     if (heroSlides.length <= 1) {
@@ -265,10 +292,17 @@ export default function TownPortal({ initialTownId = null, availableTowns }: Tow
     setLocationQuery('');
     setDetectMessage(null);
     setMobileMenuOpen(false);
+    setAccountMenuOpen(false);
     setActiveSlideIndex(0);
     startTransition(() => {
       router.push(getTownPath(townId));
     });
+  }
+
+  async function handleSignOut() {
+    setAccountMenuOpen(false);
+    setMobileMenuOpen(false);
+    await signOut({ callbackUrl: getTownPath(selectedTown?.id ?? availableTowns[0]?.id ?? '') || '/' });
   }
 
   function handleDetectCurrentLocation() {
@@ -317,10 +351,10 @@ export default function TownPortal({ initialTownId = null, availableTowns }: Tow
         </p>
         <div className="mt-8">
           <Link
-            href="/admin"
+            href="/login"
             className="inline-flex rounded-full border border-slate-950 bg-slate-950 px-6 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
           >
-            Open admin
+            Login / Signup
           </Link>
         </div>
       </main>
@@ -333,39 +367,82 @@ export default function TownPortal({ initialTownId = null, availableTowns }: Tow
     <div className="min-h-screen overflow-x-clip bg-[radial-gradient(circle_at_top_left,_rgba(161,161,170,0.14),_transparent_24%),linear-gradient(180deg,_#fafafa_0%,_#f3f4f6_42%,_#ededed_100%)] text-slate-950">
       <header className="sticky top-0 z-40 border-b border-black/18 bg-[linear-gradient(90deg,_#222b30_0%,_#293238_38%,_#232c31_100%)] shadow-[0_16px_45px_rgba(16,24,29,0.22)] backdrop-blur-xl">
         <div className="w-full px-2 py-3 sm:px-3 lg:px-4">
-          <div className="flex items-center justify-between gap-4 xl:gap-5">
-            <div className="flex min-w-0 shrink-0 items-center gap-3">
+          <div className="flex items-center justify-between gap-4 xl:grid xl:grid-cols-[minmax(190px,240px)_minmax(0,1fr)_auto] xl:items-center xl:gap-4 2xl:grid-cols-[minmax(220px,280px)_minmax(0,1fr)_auto] 2xl:gap-6">
+            <div className="flex min-w-0 shrink-0 items-center gap-3 xl:min-w-[190px] 2xl:min-w-[220px]">
               <div className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-white/8 text-lg text-white shadow-inner shadow-black/10 ring-1 ring-white/10">
                 🔎
               </div>
               <div className="min-w-0 text-left">
                 <div className="text-xs font-semibold tracking-[0.12em] text-slate-300 sm:text-sm">searchmytown.com</div>
-                <div className="max-w-[10rem] text-sm font-semibold leading-5 text-white sm:max-w-none sm:text-base">
+                <div className="max-w-[10rem] text-sm font-semibold leading-5 text-white sm:max-w-[15rem] sm:text-base xl:max-w-[12rem] 2xl:max-w-none">
                   {selectedTown.name}, {selectedTown.state}
                 </div>
               </div>
             </div>
 
-            <div className="hidden min-w-0 flex-1 items-center justify-center gap-0.5 xl:flex 2xl:gap-1">
-              {NAV_CATEGORIES.map((category) => (
-                <CategoryMenu
-                  key={category.label}
-                  category={category}
-                  townId={selectedTown.id}
-                  active={activeMenu === category.label}
-                  onOpen={() => setActiveMenu(category.label)}
-                  onClose={() => setActiveMenu((currentValue) => (currentValue === category.label ? null : currentValue))}
-                />
-              ))}
+            <div className="hidden min-w-0 xl:block">
+              <div className="flex min-w-0 items-center justify-start gap-0.5 overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden 2xl:justify-center 2xl:gap-1.5 2xl:px-2">
+                {visibleCategories.map((category) => (
+                  <CategoryMenu
+                    key={category.label}
+                    category={category}
+                    townId={selectedTown.id}
+                    active={activeMenu === category.label}
+                    onOpen={() => setActiveMenu(category.label)}
+                    onClose={() => setActiveMenu((currentValue) => (currentValue === category.label ? null : currentValue))}
+                  />
+                ))}
+              </div>
             </div>
 
-            <div className="hidden shrink-0 items-center justify-end gap-2 xl:flex">
-              <Link
-                href="/admin"
-                className="shrink-0 whitespace-nowrap rounded-full border border-slate-500 bg-white px-4 py-2 text-sm font-semibold text-slate-900 transition hover:bg-slate-200 hover:text-slate-950"
-              >
-                Admin
-              </Link>
+            <div className="hidden shrink-0 items-center justify-end gap-2 xl:flex xl:min-w-[118px] 2xl:min-w-[132px]">
+              {viewer.isAuthenticated ? (
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setAccountMenuOpen((value) => !value)}
+                    suppressHydrationWarning
+                    className="shrink-0 whitespace-nowrap rounded-full border border-slate-500 bg-white px-3 py-2 text-sm font-semibold text-slate-900 transition hover:bg-slate-200 hover:text-slate-950 2xl:px-4 2xl:py-2.5"
+                  >
+                    Account
+                  </button>
+
+                  {accountMenuOpen ? (
+                    <div className="absolute right-0 top-full z-30 mt-2 w-72 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_24px_60px_rgba(16,24,29,0.18)]">
+                      <div className="border-b border-slate-100 px-4 py-3">
+                        <div className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Signed in</div>
+                        <div className="mt-2 text-sm font-semibold text-slate-900">{viewer.email}</div>
+                      </div>
+                      <div className="space-y-1 p-2">
+                        {canAccessAdminWorkspace ? (
+                          <Link
+                            href="/admin"
+                            onClick={() => setAccountMenuOpen(false)}
+                            className="block rounded-xl px-3 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-100 hover:text-slate-950"
+                          >
+                            Open moderation workspace
+                          </Link>
+                        ) : null}
+                        <button
+                          type="button"
+                          onClick={() => void handleSignOut()}
+                          suppressHydrationWarning
+                          className="block w-full rounded-xl px-3 py-3 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-100 hover:text-slate-950"
+                        >
+                          Log out
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              ) : (
+                <Link
+                  href={getTownLoginPath(selectedTown.id)}
+                  className="shrink-0 whitespace-nowrap rounded-full border border-slate-500 bg-white px-3 py-2 text-sm font-semibold text-slate-900 transition hover:bg-slate-200 hover:text-slate-950 2xl:px-4 2xl:py-2.5"
+                >
+                  Login / Signup
+                </Link>
+              )}
             </div>
 
             <button
@@ -392,15 +469,56 @@ export default function TownPortal({ initialTownId = null, availableTowns }: Tow
                     Change town: {selectedTown.name}
                   </button>
                 ) : null}
-                <Link
-                  href="/admin"
-                  className={`block rounded-2xl bg-white px-4 py-3 text-center text-sm font-semibold text-slate-900 ${availableTowns.length > 1 ? '' : 'sm:col-span-2'}`}
-                >
-                  Admin
-                </Link>
+                {viewer.isAuthenticated ? (
+                  <button
+                    type="button"
+                    onClick={() => setAccountMenuOpen((value) => !value)}
+                    suppressHydrationWarning
+                    className={`block rounded-2xl bg-white px-4 py-3 text-center text-sm font-semibold text-slate-900 ${availableTowns.length > 1 ? '' : 'sm:col-span-2'}`}
+                  >
+                    Account
+                  </button>
+                ) : (
+                  <Link
+                    href={getTownLoginPath(selectedTown.id)}
+                    className={`block rounded-2xl bg-white px-4 py-3 text-center text-sm font-semibold text-slate-900 ${availableTowns.length > 1 ? '' : 'sm:col-span-2'}`}
+                  >
+                    Login / Signup
+                  </Link>
+                )}
               </div>
+              {viewer.isAuthenticated && accountMenuOpen ? (
+                <div className="rounded-2xl bg-white/10 p-3 text-white">
+                  <div className="rounded-2xl bg-white px-4 py-4 text-slate-900">
+                    <div className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Signed in</div>
+                    <div className="mt-2 text-sm font-semibold">{viewer.email}</div>
+                    <div className="mt-4 space-y-2">
+                      {canAccessAdminWorkspace ? (
+                        <Link
+                          href="/admin"
+                          onClick={() => {
+                            setAccountMenuOpen(false);
+                            setMobileMenuOpen(false);
+                          }}
+                          className="block rounded-xl bg-slate-100 px-4 py-3 text-center text-sm font-semibold text-slate-900"
+                        >
+                          Open moderation workspace
+                        </Link>
+                      ) : null}
+                      <button
+                        type="button"
+                        onClick={() => void handleSignOut()}
+                        suppressHydrationWarning
+                        className="block w-full rounded-xl bg-slate-900 px-4 py-3 text-center text-sm font-semibold text-white"
+                      >
+                        Log out
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
               <div className="grid gap-3">
-                {NAV_CATEGORIES.map((category) => (
+                {visibleCategories.map((category) => (
                   <details key={category.label} className="overflow-hidden rounded-2xl bg-white/10">
                     <summary className="cursor-pointer list-none px-4 py-3 text-sm font-semibold text-white">
                       <span className="mr-2">{category.icon}</span>

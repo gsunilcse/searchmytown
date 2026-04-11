@@ -1,0 +1,42 @@
+
+> search-in-town@0.1.0 build
+> next build
+
+▲ Next.js 16.2.3 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 5.4s
+  Running TypeScript ...
+  Finished TypeScript in 6.5s ...
+  Collecting page data using 11 workers ...
+  Generating static pages using 11 workers (0/9) ...
+  Generating static pages using 11 workers (2/9) 
+  Generating static pages using 11 workers (4/9) 
+  Generating static pages using 11 workers (6/9) 
+✓ Generating static pages using 11 workers (9/9) in 1573ms
+  Finalizing page optimization ...
+
+Route (app)
+┌ ƒ /
+├ ○ /_not-found
+├ ƒ /[town]
+├ ƒ /[town]/[module]
+├ ƒ /[town]/publish/[module]
+├ ƒ /admin
+├ ƒ /api/access-requests
+├ ƒ /api/admin/access-requests/[id]
+├ ƒ /api/admin/submissions/[id]
+├ ƒ /api/admin/towns
+├ ƒ /api/auth/[...nextauth]
+├ ƒ /api/submissions
+├ ○ /icon
+├ ƒ /login
+├ ○ /opengraph-image
+├ ○ /robots.txt
+└ ƒ /sitemap.xml
+
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+

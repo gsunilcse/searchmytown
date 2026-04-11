@@ -1,8 +1,9 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import PublishForm from '@/components/PublishForm';
 import { getModuleDefinition, getTownModulePath, isDirectoryModuleKey } from '@/config/modules';
+import { canPublish, getAppViewer } from '@/lib/auth';
 import { buildPublishMetadata } from '@/lib/seo';
 import { getEnabledTownById } from '@/lib/town-settings';
 
@@ -43,6 +44,11 @@ export default async function PublishPage({ params }: PublishPageProps) {
   const moduleDefinition = getModuleDefinition(module);
   if (!moduleDefinition) {
     notFound();
+  }
+
+  const viewer = await getAppViewer();
+  if (!canPublish(viewer, selectedTown.id)) {
+    redirect(`/login?intent=publisher&town=${selectedTown.id}&callbackUrl=${encodeURIComponent(`/${selectedTown.id}/publish/${module}`)}`);
   }
 
   return (

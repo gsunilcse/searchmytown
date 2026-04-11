@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import TownPortal from '@/components/TownPortal';
+import { getAppViewer } from '@/lib/auth';
 import { buildTownMetadata } from '@/lib/seo';
 import { getEnabledTownById, getEnabledTowns } from '@/lib/town-settings';
 
@@ -25,11 +26,11 @@ export async function generateMetadata({ params }: TownPageProps): Promise<Metad
 
 export default async function TownPage({ params }: TownPageProps) {
   const { town } = await params;
-  const [selectedTown, enabledTowns] = await Promise.all([getEnabledTownById(town), getEnabledTowns()]);
+  const [selectedTown, enabledTowns, viewer] = await Promise.all([getEnabledTownById(town), getEnabledTowns(), getAppViewer()]);
 
   if (!selectedTown) {
     notFound();
   }
 
-  return <TownPortal initialTownId={selectedTown.id} availableTowns={enabledTowns} />;
+  return <TownPortal initialTownId={selectedTown.id} availableTowns={enabledTowns} viewer={viewer} />;
 }

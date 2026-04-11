@@ -4,17 +4,22 @@ import { signOut } from 'next-auth/react';
 import { useMemo, useState } from 'react';
 import { MODULE_DEFINITIONS, MODULE_KEYS, type DirectoryModuleKey } from '@/config/modules';
 import type { Town } from '@/config/towns';
+import type { AppViewer } from '@/lib/auth';
 import type { ListingRecord, SubmissionStatus } from '@/lib/submissions';
+import type { SignupRequestRecord } from '@/lib/user-access';
 
 const UTC_MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 type AdminPanelProps = {
   initialListings: ListingRecord[];
   initialTowns: Town[];
+  initialAdminAccessRequests: SignupRequestRecord[];
   adminEmail?: string | null;
+  viewer: AppViewer;
 };
 
 type ModerationAction = Exclude<SubmissionStatus, 'pending'>;
+type AccessReviewAction = 'approved' | 'rejected';
 
 function formatAdminTimestamp(value: string) {
   const date = new Date(value);
@@ -67,14 +72,41 @@ async function updateTownEnabledSetting(townId: string, enabled: boolean) {
   return data.towns;
 }
 
-export default function AdminPanel({ initialListings, initialTowns, adminEmail = null }: AdminPanelProps) {
+async function updateAdminAccessRequestStatus(id: string, status: AccessReviewAction, reviewNote: string) {
+  const response = await fetch(`/api/admin/access-requests/${id}`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ status, reviewNote }),
+  });
+
+  const data = (await response.json()) as { error?: string; record?: SignupRequestRecord };
+  if (!response.ok || !data.record) {
+    throw new Error(data.error ?? 'Unable to update the signup request.');
+  }
+
+  return data.record;
+}
+
+export default function AdminPanel({
+  initialListings,
+  initialTowns,
+  initialAdminAccessRequests,
+  adminEmail = null,
+  viewer,
+}: AdminPanelProps) {
+  const isSuperAdmin = viewer.roles.includes('super-admin');
+  const isTownAdmin = viewer.roles.includes('townadmin');
   const [listings, setListings] = useState(initialListings);
   const [towns, setTowns] = useState(initialTowns);
+  const [adminAccessRequests, setAdminAccessRequests] = useState(initialAdminAccessRequests);
   const [statusFilter, setStatusFilter] = useState<'all' | SubmissionStatus>('pending');
   const [moduleFilter, setModuleFilter] = useState<'all' | DirectoryModuleKey>('all');
   const [townFilter, setTownFilter] = useState<'all' | string>('all');
   const [busyId, setBusyId] = useState<string | null>(null);
   const [busyTownId, setBusyTownId] = useState<string | null>(null);
+  const [busyAccessRequestId, setBusyAccessRequestId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const summary = useMemo(() => {
@@ -92,6 +124,22 @@ export default function AdminPanel({ initialListings, initialTowns, adminEmail =
       }
     );
   }, [listings]);
+
+  const requestSummary = useMemo(() => {
+    return adminAccessRequests.reduce(
+      (accumulator, request) => {
+        accumulator.total += 1;
+        accumulator[request.status] += 1;
+        return accumulator;
+      },
+      {
+        total: 0,
+        pending: 0,
+        approved: 0,
+        rejected: 0,
+      }
+    );
+  }, [adminAccessRequests]);
 
   const townOptions = useMemo(() => {
     return towns
@@ -125,7 +173,7 @@ export default function AdminPanel({ initialListings, initialTowns, adminEmail =
       const moderationNote = status === 'approved' ? 'Approved by admin.' : 'Rejected by admin.';
       const listingToUpdate = listings.find((listing) => listing.id === id);
       if (!listingToUpdate) {
-        throw new Error('Submission not found in the current admin list.');
+        throw new Error('Submission not found in the current moderation list.');
       }
 
       const updatedRecord = await updateSubmissionStatus(listingToUpdate.moduleKey, id, status, moderationNote);
@@ -138,7 +186,7 @@ export default function AdminPanel({ initialListings, initialTowns, adminEmail =
   }
 
   async function handleLogout() {
-    await signOut({ callbackUrl: '/admin' });
+    await signOut({ callbackUrl: '/login' });
   }
 
   async function handleTownToggle(townId: string, enabled: boolean) {
@@ -155,19 +203,41 @@ export default function AdminPanel({ initialListings, initialTowns, adminEmail =
     }
   }
 
+  async function handleAdminAccessReview(id: string, status: AccessReviewAction) {
+    setBusyAccessRequestId(id);
+    setErrorMessage(null);
+
+    try {
+      const reviewNote = status === 'approved' ? 'Approved by super admin.' : 'Rejected by super admin.';
+      const updatedRecord = await updateAdminAccessRequestStatus(id, status, reviewNote);
+      setAdminAccessRequests((currentValue) => currentValue.map((record) => (record.id === id ? updatedRecord : record)));
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Unable to update the admin access request.');
+    } finally {
+      setBusyAccessRequestId(null);
+    }
+  }
+
   return (
     <div className="space-y-8">
       <section className="rounded-[2rem] border border-slate-200 bg-white/92 p-6 shadow-[0_24px_64px_rgba(15,23,42,0.1)] sm:p-8">
         <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Admin moderation</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">
+              {isSuperAdmin ? 'Super admin workspace' : 'Town admin workspace'}
+            </p>
             <h1 className="mt-3 font-display text-4xl text-slate-950 sm:text-5xl">Review publishing requests</h1>
             <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-600 sm:text-base">
-              Every public listing must be approved here first. Pending records stay hidden from visitors until an admin approves them.
+              {isSuperAdmin
+                ? 'Superadmin can review all towns, approve signup requests, and control town visibility.'
+                : 'Your account can moderate publish requests only for the enabled towns assigned to it.'}
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-3">
             {adminEmail ? <div className="rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-700">{adminEmail}</div> : null}
+            <div className="rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-700">
+              {isSuperAdmin ? 'All towns' : `${viewer.adminTownIds.length} assigned town${viewer.adminTownIds.length === 1 ? '' : 's'}`}
+            </div>
             <button
               type="button"
               onClick={handleLogout}
@@ -198,52 +268,54 @@ export default function AdminPanel({ initialListings, initialTowns, adminEmail =
         </div>
       </section>
 
-      <section className="rounded-[2rem] border border-slate-200 bg-white/92 p-6 shadow-[0_24px_64px_rgba(15,23,42,0.1)] sm:p-8">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Town access</p>
-            <h2 className="mt-3 font-display text-3xl text-slate-950">Control which towns are live</h2>
-          </div>
-          <p className="max-w-2xl text-sm leading-7 text-slate-600">
-            Only enabled towns appear on the landing page, in the sitemap, and on public routes. Start with Ramachandrapuram and enable more towns when they are ready.
-          </p>
-        </div>
-
-        <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {towns.map((town) => (
-            <div key={town.id} className="rounded-[1.6rem] border border-slate-200 bg-slate-50/80 p-5 shadow-[0_14px_30px_rgba(15,23,42,0.05)]">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <div className="text-lg font-semibold text-slate-950">{town.name}</div>
-                  <div className="mt-1 text-sm text-slate-500">{town.state}</div>
-                </div>
-                <span className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] ${town.enabled ? 'bg-slate-950 text-white' : 'bg-white text-slate-700'}`}>
-                  {town.enabled ? 'Enabled' : 'Hidden'}
-                </span>
-              </div>
-
-              <div className="mt-5 flex gap-3">
-                <button
-                  type="button"
-                  disabled={busyTownId === town.id || town.enabled}
-                  onClick={() => handleTownToggle(town.id, true)}
-                  className="rounded-full bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {busyTownId === town.id ? 'Updating...' : 'Enable'}
-                </button>
-                <button
-                  type="button"
-                  disabled={busyTownId === town.id || !town.enabled}
-                  onClick={() => handleTownToggle(town.id, false)}
-                  className="rounded-full border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-900 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {busyTownId === town.id ? 'Updating...' : 'Hide'}
-                </button>
-              </div>
+      {isSuperAdmin ? (
+        <section className="rounded-[2rem] border border-slate-200 bg-white/92 p-6 shadow-[0_24px_64px_rgba(15,23,42,0.1)] sm:p-8">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Town access</p>
+              <h2 className="mt-3 font-display text-3xl text-slate-950">Control which towns are live</h2>
             </div>
-          ))}
-        </div>
-      </section>
+            <p className="max-w-2xl text-sm leading-7 text-slate-600">
+              Only the super admin can expose a town on the public site. Hidden towns stay out of the landing page, sitemap, and publish flows.
+            </p>
+          </div>
+
+          <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {towns.map((town) => (
+              <div key={town.id} className="rounded-[1.6rem] border border-slate-200 bg-slate-50/80 p-5 shadow-[0_14px_30px_rgba(15,23,42,0.05)]">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <div className="text-lg font-semibold text-slate-950">{town.name}</div>
+                    <div className="mt-1 text-sm text-slate-500">{town.state}</div>
+                  </div>
+                  <span className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] ${town.enabled ? 'bg-slate-950 text-white' : 'bg-white text-slate-700'}`}>
+                    {town.enabled ? 'Enabled' : 'Hidden'}
+                  </span>
+                </div>
+
+                <div className="mt-5 flex gap-3">
+                  <button
+                    type="button"
+                    disabled={busyTownId === town.id || town.enabled}
+                    onClick={() => void handleTownToggle(town.id, true)}
+                    className="rounded-full bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {busyTownId === town.id ? 'Updating...' : 'Enable'}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={busyTownId === town.id || !town.enabled}
+                    onClick={() => void handleTownToggle(town.id, false)}
+                    className="rounded-full border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-900 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {busyTownId === town.id ? 'Updating...' : 'Hide'}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       <section className="rounded-[2rem] border border-slate-200 bg-white/92 p-6 shadow-[0_24px_64px_rgba(15,23,42,0.1)] sm:p-8">
         <div className="grid gap-4 lg:grid-cols-3">
@@ -329,6 +401,7 @@ export default function AdminPanel({ initialListings, initialTowns, adminEmail =
                       <div><strong className="text-slate-900">Email:</strong> {listing.email || 'Not provided'}</div>
                       <div className="md:col-span-2 xl:col-span-1"><strong className="text-slate-900">Website:</strong> {listing.website || 'Not provided'}</div>
                       <div className="md:col-span-2 xl:col-span-2"><strong className="text-slate-900">Address:</strong> {listing.address || 'Not provided'}</div>
+                      <div className="md:col-span-2 xl:col-span-3"><strong className="text-slate-900">Submitted by:</strong> {listing.submittedByName || 'Unknown'} {listing.submittedByEmail ? `(${listing.submittedByEmail})` : ''}</div>
                     </div>
                   </div>
 
@@ -349,7 +422,7 @@ export default function AdminPanel({ initialListings, initialTowns, adminEmail =
                     <button
                       type="button"
                       disabled={!isPending || busyId === listing.id}
-                      onClick={() => handleModeration(listing.id, 'approved')}
+                      onClick={() => void handleModeration(listing.id, 'approved')}
                       className="rounded-full bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       {busyId === listing.id ? 'Updating...' : 'Approve'}
@@ -357,7 +430,7 @@ export default function AdminPanel({ initialListings, initialTowns, adminEmail =
                     <button
                       type="button"
                       disabled={!isPending || busyId === listing.id}
-                      onClick={() => handleModeration(listing.id, 'rejected')}
+                      onClick={() => void handleModeration(listing.id, 'rejected')}
                       className="rounded-full border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-900 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       {busyId === listing.id ? 'Updating...' : 'Reject'}
@@ -375,6 +448,93 @@ export default function AdminPanel({ initialListings, initialTowns, adminEmail =
           ) : null}
         </div>
       </section>
+
+      {isSuperAdmin ? (
+        <section className="rounded-[2rem] border border-slate-200 bg-white/92 p-6 shadow-[0_24px_64px_rgba(15,23,42,0.1)] sm:p-8">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Signup review</p>
+              <h2 className="mt-3 font-display text-3xl text-slate-950">Review townadmin signup requests</h2>
+            </div>
+            <p className="max-w-2xl text-sm leading-7 text-slate-600">
+              Approved townadmin requests grant moderation access to the selected enabled town. The single superadmin account is seeded manually in the database.
+            </p>
+          </div>
+
+          <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50 px-5 py-4">
+              <div className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Total requests</div>
+              <div className="mt-3 text-3xl font-semibold text-slate-950">{requestSummary.total}</div>
+            </div>
+            <div className="rounded-[1.5rem] border border-slate-300 bg-slate-100 px-5 py-4">
+              <div className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-600">Pending</div>
+              <div className="mt-3 text-3xl font-semibold text-slate-950">{requestSummary.pending}</div>
+            </div>
+            <div className="rounded-[1.5rem] border border-slate-300 bg-slate-100 px-5 py-4">
+              <div className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-600">Approved</div>
+              <div className="mt-3 text-3xl font-semibold text-slate-950">{requestSummary.approved}</div>
+            </div>
+            <div className="rounded-[1.5rem] border border-slate-300 bg-slate-100 px-5 py-4">
+              <div className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-600">Rejected</div>
+              <div className="mt-3 text-3xl font-semibold text-slate-950">{requestSummary.rejected}</div>
+            </div>
+          </div>
+
+          <div className="mt-8 space-y-4">
+            {adminAccessRequests.map((request) => {
+              const isPending = request.status === 'pending';
+
+              return (
+                <article key={request.id} className="rounded-[1.6rem] border border-slate-200 bg-slate-50/80 p-5 shadow-[0_14px_30px_rgba(15,23,42,0.05)]">
+                  <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+                    <div className="space-y-3">
+                      <div className="flex flex-wrap items-center gap-3 text-sm">
+                        <span className="rounded-full bg-slate-950 px-3 py-1 font-semibold text-white">{request.townName}</span>
+                        <span className={`rounded-full px-3 py-1 font-semibold ${request.status === 'approved' ? 'bg-slate-200 text-slate-800' : request.status === 'rejected' ? 'bg-slate-300 text-slate-900' : 'bg-slate-100 text-slate-700'}`}>
+                          {request.status}
+                        </span>
+                      </div>
+                      <h3 className="text-2xl font-semibold text-slate-950">{request.name || 'Unnamed requester'}</h3>
+                      <p className="text-sm leading-7 text-slate-600">{request.email}</p>
+                      <p className="text-sm leading-7 text-slate-600">Requested role: {request.requestedRole}</p>
+                      <div className="grid gap-3 text-sm text-slate-600 md:grid-cols-2">
+                        <div><strong className="text-slate-900">Requested:</strong> {formatAdminTimestamp(request.requestedAt)}</div>
+                        <div><strong className="text-slate-900">Reviewed by:</strong> {request.reviewedByEmail || 'Pending review'}</div>
+                      </div>
+                      {request.reviewNote ? <p className="text-sm leading-7 text-slate-500">{request.reviewNote}</p> : null}
+                    </div>
+
+                    <div className="flex min-w-[220px] flex-col gap-3">
+                      <button
+                        type="button"
+                        disabled={!isPending || busyAccessRequestId === request.id}
+                        onClick={() => void handleAdminAccessReview(request.id, 'approved')}
+                        className="rounded-full bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {busyAccessRequestId === request.id ? 'Updating...' : 'Approve signup'}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={!isPending || busyAccessRequestId === request.id}
+                        onClick={() => void handleAdminAccessReview(request.id, 'rejected')}
+                        className="rounded-full border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-900 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {busyAccessRequestId === request.id ? 'Updating...' : 'Reject request'}
+                      </button>
+                    </div>
+                  </div>
+                </article>
+              );
+            })}
+
+            {adminAccessRequests.length === 0 ? (
+              <div className="rounded-[1.6rem] border border-dashed border-slate-300 bg-slate-50 px-5 py-12 text-center text-sm text-slate-500">
+                No signup requests have been submitted yet.
+              </div>
+            ) : null}
+          </div>
+        </section>
+      ) : null}
     </div>
   );
 }

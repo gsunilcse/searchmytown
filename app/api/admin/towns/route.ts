@@ -1,20 +1,22 @@
 import { NextResponse } from 'next/server';
-import { hasAdminSession } from '@/lib/admin-auth';
+import { canManageAllTowns, getAppViewer } from '@/lib/auth';
 import { getManagedTowns, updateTownEnabled } from '@/lib/town-settings';
 
 export const runtime = 'nodejs';
 
 export async function GET() {
-  if (!(await hasAdminSession())) {
-    return NextResponse.json({ error: 'Unauthorized admin access.' }, { status: 401 });
+  const viewer = await getAppViewer();
+  if (!canManageAllTowns(viewer)) {
+    return NextResponse.json({ error: 'Only the super admin can manage town visibility.' }, { status: 401 });
   }
 
   return NextResponse.json({ towns: await getManagedTowns() });
 }
 
 export async function PATCH(request: Request) {
-  if (!(await hasAdminSession())) {
-    return NextResponse.json({ error: 'Unauthorized admin access.' }, { status: 401 });
+  const viewer = await getAppViewer();
+  if (!canManageAllTowns(viewer)) {
+    return NextResponse.json({ error: 'Only the super admin can manage town visibility.' }, { status: 401 });
   }
 
   const body = (await request.json()) as { townId?: string; enabled?: boolean };
