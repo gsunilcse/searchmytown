@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import LoginHub from '@/components/LoginHub';
-import { canAccessAdmin, getAppSession, getViewerFromSession, isAuthConfigured, sanitizeCallbackPath } from '@/lib/auth';
+import { canAccessAdmin, getAppSession, getConfiguredSuperAdminEmail, getViewerFromSession, isAuthConfigured, sanitizeCallbackPath } from '@/lib/auth';
 import { getTownPath } from '@/config/towns';
 import { buildMetadata } from '@/lib/seo';
 import { getListingsBySubmitter } from '@/lib/submissions';
@@ -69,6 +69,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   const params = await searchParams;
   const session = isAuthConfigured() ? await getAppSession() : null;
   const viewer = getViewerFromSession(session);
+  const configuredSuperAdminEmail = getConfiguredSuperAdminEmail();
   const callbackUrl = sanitizeCallbackPath(params.callbackUrl, '/login');
   const intent = params.intent ?? 'publisher';
   const selectedTown = typeof params.town === 'string' ? await getEnabledTownById(params.town) : null;
@@ -98,6 +99,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
       <LoginHub
         authConfigured={isAuthConfigured()}
         viewer={viewer}
+        configuredSuperAdminEmail={configuredSuperAdminEmail}
         callbackUrl={callbackUrl}
         intent={intent}
         errorMessage={getAuthErrorMessage(params.error)}

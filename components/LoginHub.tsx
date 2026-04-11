@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { signIn, signOut } from 'next-auth/react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { MODULE_DEFINITIONS } from '@/config/modules';
 import type { Town } from '@/config/towns';
 import type { AppViewer, LoginRole } from '@/lib/auth';
@@ -13,6 +13,7 @@ import type { RequestedRole, SignupRequestRecord } from '@/lib/user-access';
 type LoginHubProps = {
   authConfigured: boolean;
   viewer: AppViewer;
+  configuredSuperAdminEmail: string | null;
   callbackUrl: string;
   intent: string;
   errorMessage?: string | null;
@@ -36,6 +37,10 @@ type SignupFormState = {
   requestedRole: RequestedRole;
   townId: string;
 };
+
+function normalizeEmail(value: string): string {
+  return value.trim().toLowerCase();
+}
 
 async function submitSignup(payload: SignupFormState) {
   const response = await fetch('/api/access-requests', {
@@ -85,6 +90,7 @@ function getSignInTarget(intent: LoginIntent, callbackUrl: string) {
 export default function LoginHub({
   authConfigured,
   viewer,
+  configuredSuperAdminEmail,
   callbackUrl,
   intent,
   errorMessage = null,
@@ -142,6 +148,31 @@ export default function LoginHub({
       ),
     [accessRequests]
   );
+  const hasPendingTownAdminLoginRequest = useMemo(
+    () =>
+      loginFormState.requestedRole === 'townadmin' &&
+      accessRequests.some(
+        (request) =>
+          request.requestedRole === 'townadmin' &&
+          request.status === 'pending' &&
+          normalizeEmail(request.email) === normalizeEmail(loginFormState.email) &&
+          request.townId === loginFormState.townId
+      ),
+    [accessRequests, loginFormState.email, loginFormState.requestedRole, loginFormState.townId]
+  );
+  const loginDisabledReason = hasPendingTownAdminLoginRequest
+    ? 'Townadmin access is still pending superadmin review for this email and town.'
+    : null;
+  const canShowSuperAdminOption = normalizeEmail(loginFormState.email) === configuredSuperAdminEmail;
+
+  useEffect(() => {
+    if (!canShowSuperAdminOption && loginFormState.requestedRole === 'superadmin') {
+      setLoginFormState((currentValue) => ({
+        ...currentValue,
+        requestedRole: 'publisher',
+      }));
+    }
+  }, [canShowSuperAdminOption, loginFormState.requestedRole]);
 
   function updateField(field: keyof SignupFormState, value: string) {
     setFormState((currentValue) => ({
@@ -151,6 +182,7 @@ export default function LoginHub({
   }
 
   function updateLoginField(field: keyof LoginFormState, value: string) {
+    setLoginError(null);
     setLoginFormState((currentValue) => ({
       ...currentValue,
       [field]: value,
@@ -171,6 +203,7 @@ export default function LoginHub({
 
   function handleLoginRoleChange(value: string) {
     const nextRole = value as LoginIntent;
+    setLoginError(null);
 
     setLoginFormState((currentValue) => ({
       ...currentValue,
@@ -181,6 +214,12 @@ export default function LoginHub({
 
   async function handleLoginSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+
+    if (hasPendingTownAdminLoginRequest) {
+      setLoginError(loginDisabledReason);
+      return;
+    }
+
     setIsSubmittingIntent(loginFormState.requestedRole);
     setLoginError(null);
 
@@ -302,7 +341,7 @@ export default function LoginHub({
                   <select value={loginFormState.requestedRole} onChange={(event) => handleLoginRoleChange(event.target.value)} suppressHydrationWarning className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-500">
                     <option value="publisher">Publisher</option>
                     <option value="townadmin">Townadmin</option>
-                    <option value="superadmin">Superadmin</option>
+                    {canShowSuperAdminOption ? <option value="superadmin">Superadmin</option> : null}
                   </select>
                 </label>
 
@@ -328,9 +367,10 @@ export default function LoginHub({
                 </div>
 
                 {errorMessage ? <p className="text-sm font-medium text-slate-700">{errorMessage}</p> : null}
+                {loginDisabledReason ? <p className="text-sm font-medium text-slate-700">{loginDisabledReason}</p> : null}
                 {loginError ? <p className="text-sm font-medium text-slate-700">{loginError}</p> : null}
 
-                <button type="submit" disabled={isSubmittingIntent !== null} suppressHydrationWarning className="rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-wait disabled:opacity-70">
+                <button type="submit" disabled={isSubmittingIntent !== null || hasPendingTownAdminLoginRequest} suppressHydrationWarning className="rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-70">
                   {isSubmittingIntent ? 'Checking access...' : 'Verify and continue with Google'}
                 </button>
               </div>

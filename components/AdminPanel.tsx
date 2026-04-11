@@ -108,6 +108,7 @@ export default function AdminPanel({
   const [busyTownId, setBusyTownId] = useState<string | null>(null);
   const [busyAccessRequestId, setBusyAccessRequestId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const summary = useMemo(() => {
     return listings.reduce(
@@ -168,6 +169,7 @@ export default function AdminPanel({
   async function handleModeration(id: string, status: ModerationAction) {
     setBusyId(id);
     setErrorMessage(null);
+    setSuccessMessage(null);
 
     try {
       const moderationNote = status === 'approved' ? 'Approved by admin.' : 'Rejected by admin.';
@@ -178,6 +180,11 @@ export default function AdminPanel({
 
       const updatedRecord = await updateSubmissionStatus(listingToUpdate.moduleKey, id, status, moderationNote);
       setListings((currentValue) => currentValue.map((listing) => (listing.id === id ? updatedRecord : listing)));
+      setSuccessMessage(
+        statusFilter === 'pending'
+          ? `${updatedRecord.title} was ${status}. The current filter is still set to Pending, so reviewed items drop out of this list.`
+          : `${updatedRecord.title} was ${status}.`
+      );
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Unable to update submission.');
     } finally {
@@ -192,10 +199,15 @@ export default function AdminPanel({
   async function handleTownToggle(townId: string, enabled: boolean) {
     setBusyTownId(townId);
     setErrorMessage(null);
+    setSuccessMessage(null);
 
     try {
       const updatedTowns = await updateTownEnabledSetting(townId, enabled);
       setTowns(updatedTowns);
+      const updatedTown = updatedTowns.find((town) => town.id === townId);
+      setSuccessMessage(
+        updatedTown ? `${updatedTown.name} is now ${enabled ? 'enabled' : 'hidden'}.` : 'Town availability updated.'
+      );
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Unable to update town availability.');
     } finally {
@@ -206,11 +218,13 @@ export default function AdminPanel({
   async function handleAdminAccessReview(id: string, status: AccessReviewAction) {
     setBusyAccessRequestId(id);
     setErrorMessage(null);
+    setSuccessMessage(null);
 
     try {
       const reviewNote = status === 'approved' ? 'Approved by super admin.' : 'Rejected by super admin.';
       const updatedRecord = await updateAdminAccessRequestStatus(id, status, reviewNote);
       setAdminAccessRequests((currentValue) => currentValue.map((record) => (record.id === id ? updatedRecord : record)));
+      setSuccessMessage(`${updatedRecord.email} was ${status}.`);
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Unable to update the admin access request.');
     } finally {
@@ -367,6 +381,7 @@ export default function AdminPanel({
         </div>
 
         {errorMessage ? <p className="mt-4 text-sm font-medium text-slate-700">{errorMessage}</p> : null}
+        {successMessage ? <p className="mt-4 text-sm font-medium text-slate-700">{successMessage}</p> : null}
 
         <div className="mt-8 space-y-4">
           {filteredListings.map((listing) => {

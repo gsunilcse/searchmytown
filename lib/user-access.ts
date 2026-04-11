@@ -69,6 +69,16 @@ const REQUESTS_DATA_FILE_PATH = path.join(process.cwd(), 'data', 'signup-request
 const USERS_COLLECTION_NAME = 'registeredUsers';
 const REQUESTS_COLLECTION_NAME = 'signupRequests';
 
+function canUseLocalMutableFallback(): boolean {
+  return process.env.NODE_ENV !== 'production';
+}
+
+function assertWritablePersistentStore(action: string): void {
+  if (!canUseLocalMutableFallback()) {
+    throw new Error(`${action} requires Firestore in production. Configure valid FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY, and FIRESTORE_DATABASE_ID values for the deployed app.`);
+  }
+}
+
 function toIsoString(value: unknown): string {
   if (value instanceof Timestamp) {
     return value.toDate().toISOString();
@@ -314,6 +324,7 @@ async function upsertRegisteredUser(profile: AccessProfile): Promise<RegisteredU
   });
 
   if (!isFirestoreConfigured()) {
+    assertWritablePersistentStore('Saving registered users');
     const users = await readUsersFileStore();
     const index = users.findIndex((item) => item.email === normalizedEmail);
     const existing = index >= 0 ? users[index]! : null;
@@ -354,6 +365,7 @@ async function upsertRegisteredUser(profile: AccessProfile): Promise<RegisteredU
     return normalizeUserRecord(savedSnapshot.id, savedSnapshot.data() as Partial<RegisteredUserRecord>);
   } catch (error) {
     console.error('Falling back to local registered user store after Firestore write failed.', error);
+    assertWritablePersistentStore('Saving registered users');
     const users = await readUsersFileStore();
     const index = users.findIndex((item) => item.email === normalizedEmail);
     const existing = index >= 0 ? users[index]! : null;
@@ -493,6 +505,7 @@ export async function createSignupRequest(input: SignupInput): Promise<SignupRes
   };
 
   if (!isFirestoreConfigured()) {
+    assertWritablePersistentStore('Creating signup requests');
     const requests = await readRequestsFileStore();
     requests.unshift(record);
     await writeRequestsFileStore(requests);
@@ -521,6 +534,7 @@ export async function createSignupRequest(input: SignupInput): Promise<SignupRes
     };
   } catch (error) {
     console.error('Falling back to local signup request store after Firestore write failed.', error);
+    assertWritablePersistentStore('Creating signup requests');
     const requests = await readRequestsFileStore();
     requests.unshift(record);
     await writeRequestsFileStore(requests);
@@ -540,6 +554,7 @@ export async function reviewSignupRequest(
   const normalizedReviewerEmail = normalizeEmail(reviewedByEmail);
 
   if (!isFirestoreConfigured()) {
+    assertWritablePersistentStore('Reviewing signup requests');
     const requests = await readRequestsFileStore();
     const index = requests.findIndex((item) => item.id === id);
 
@@ -590,6 +605,7 @@ export async function reviewSignupRequest(
     return updated;
   } catch (error) {
     console.error('Falling back to local signup request store after Firestore moderation update failed.', error);
+    assertWritablePersistentStore('Reviewing signup requests');
     const requests = await readRequestsFileStore();
     const index = requests.findIndex((item) => item.id === id);
 

@@ -15,6 +15,16 @@ type TownSettingRecord = {
 const DATA_FILE_PATH = path.join(process.cwd(), 'data', 'town-settings.json');
 const COLLECTION_NAME = 'townSettings';
 
+function canUseLocalMutableFallback(): boolean {
+  return process.env.NODE_ENV !== 'production';
+}
+
+function assertWritablePersistentStore(action: string): void {
+  if (!canUseLocalMutableFallback()) {
+    throw new Error(`${action} requires Firestore in production. Configure valid FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY, and FIRESTORE_DATABASE_ID values for the deployed app.`);
+  }
+}
+
 function getDefaultTownMap(): Map<string, Town> {
   return new Map(DEFAULT_TOWNS.map((town) => [town.id, town]));
 }
@@ -108,6 +118,7 @@ export async function updateTownEnabled(townId: string, enabled: boolean): Promi
   }
 
   if (!isFirestoreConfigured()) {
+    assertWritablePersistentStore('Updating town visibility');
     const defaultTownMap = getDefaultTownMap();
     const records = await readFileStore();
     const nextRecords = records.filter((record) => record.townId !== townId);
@@ -141,6 +152,7 @@ export async function updateTownEnabled(townId: string, enabled: boolean): Promi
     return getManagedTowns();
   } catch (error) {
     console.error('Falling back to local town settings after Firestore write failed.', error);
+    assertWritablePersistentStore('Updating town visibility');
     const defaultTownMap = getDefaultTownMap();
     const records = await readFileStore();
     const nextRecords = records.filter((record) => record.townId !== townId);

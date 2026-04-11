@@ -26,7 +26,7 @@ function getRequiredEnv(name: string): string | null {
   return value && value.length > 0 ? value : null;
 }
 
-function getConfiguredSuperAdminEmail(): string | null {
+export function getConfiguredSuperAdminEmail(): string | null {
   const configuredValue = process.env.SUPER_ADMIN_EMAILS?.trim() || process.env.ADMIN_ALLOWED_EMAILS?.trim();
   if (!configuredValue) {
     return null;

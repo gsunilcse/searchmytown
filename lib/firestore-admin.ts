@@ -6,8 +6,26 @@ function getRequiredEnv(name: string): string | null {
   return value && value.trim().length > 0 ? value : null;
 }
 
+function stripWrappingQuotes(value: string): string {
+  const trimmedValue = value.trim();
+  if (
+    (trimmedValue.startsWith('"') && trimmedValue.endsWith('"')) ||
+    (trimmedValue.startsWith("'") && trimmedValue.endsWith("'"))
+  ) {
+    return trimmedValue.slice(1, -1);
+  }
+
+  return trimmedValue;
+}
+
 function normalizePrivateKey(value: string | null): string | null {
-  return value?.replace(/\\n/g, '\n') ?? null;
+  if (!value) {
+    return null;
+  }
+
+  return stripWrappingQuotes(value)
+    .replace(/\r\n/g, '\n')
+    .replace(/\\n/g, '\n');
 }
 
 function isPlaceholderProjectId(value: string | null): boolean {
@@ -60,13 +78,25 @@ function getFirebaseAdminApp(): App {
     throw new Error('Firestore is not configured. Add valid FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, and FIREBASE_PRIVATE_KEY values.');
   }
 
-  return initializeApp({
-    credential: cert({
-      projectId,
-      clientEmail,
-      privateKey,
-    }),
-  });
+  try {
+    return initializeApp({
+      credential: cert({
+        projectId,
+        clientEmail,
+        privateKey,
+      }),
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+
+    if (/DECODER routines::unsupported|private key/i.test(message)) {
+      throw new Error(
+        'Invalid FIREBASE_PRIVATE_KEY format. In production, store the Firebase private key without surrounding quotes, or as a single-line value with literal \\n escapes between lines.'
+      );
+    }
+
+    throw error;
+  }
 }
 
 export function getFirestoreAdmin() {

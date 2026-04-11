@@ -55,6 +55,16 @@ export type ListingInput = {
 
 const DATA_FILE_PATH = path.join(process.cwd(), 'data', 'town-submissions.json');
 
+function canUseLocalMutableFallback(): boolean {
+  return process.env.NODE_ENV !== 'production';
+}
+
+function assertWritablePersistentStore(action: string): void {
+  if (!canUseLocalMutableFallback()) {
+    throw new Error(`${action} requires Firestore in production. Configure valid FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY, and FIRESTORE_DATABASE_ID values for the deployed app.`);
+  }
+}
+
 function toIsoString(value: unknown): string {
   if (value instanceof Timestamp) {
     return value.toDate().toISOString();
@@ -180,6 +190,21 @@ async function getFirestoreListings(): Promise<ListingRecord[]> {
     .sort((left, right) => right.submittedAt.localeCompare(left.submittedAt));
 }
 
+async function getFirestoreApprovedListingsByTown(
+  townId: string,
+  moduleKey: DirectoryModuleKey
+): Promise<ListingRecord[]> {
+  const snapshot = await getFirestoreAdmin()
+    .collection(getCollectionName(moduleKey))
+    .where('townId', '==', townId)
+    .get();
+
+  return snapshot.docs
+    .map(normalizeFirestoreDocument)
+    .filter((item) => item.approved)
+    .sort((left, right) => right.submittedAt.localeCompare(left.submittedAt));
+}
+
 async function getListingsWithFallback(): Promise<ListingRecord[]> {
   if (!isFirestoreConfigured()) {
     return readFileStore();
@@ -198,6 +223,14 @@ export async function getAllListings(): Promise<ListingRecord[]> {
 }
 
 export async function getApprovedListings(townId: string, moduleKey: DirectoryModuleKey): Promise<ListingRecord[]> {
+  if (isFirestoreConfigured()) {
+    try {
+      return await getFirestoreApprovedListingsByTown(townId, moduleKey);
+    } catch (error) {
+      console.error('Falling back to full submission read after Firestore town query failed.', error);
+    }
+  }
+
   const allItems = await getListingsWithFallback();
 
   return allItems
@@ -217,6 +250,19 @@ export async function getListingsBySubmitter(email: string): Promise<ListingReco
 }
 
 export async function getListingById(moduleKey: DirectoryModuleKey, id: string): Promise<ListingRecord | null> {
+  if (isFirestoreConfigured()) {
+    try {
+      const snapshot = await getFirestoreAdmin().collection(getCollectionName(moduleKey)).doc(id).get();
+      if (!snapshot.exists) {
+        return null;
+      }
+
+      return normalizeRecord(snapshot.id, snapshot.data() as Partial<ListingRecord>);
+    } catch (error) {
+      console.error('Falling back to full submission read after Firestore direct lookup failed.', error);
+    }
+  }
+
   const items = await getListingsWithFallback();
   return items.find((item) => item.id === id && item.moduleKey === moduleKey) ?? null;
 }
@@ -250,6 +296,7 @@ export async function createListing(input: ListingInput): Promise<ListingRecord>
   const collectionName = getCollectionName(record.moduleKey);
 
   if (!isFirestoreConfigured()) {
+    assertWritablePersistentStore('Creating listings');
     const items = await readFileStore();
     items.unshift(record);
     await writeFileStore(items);
@@ -272,6 +319,7 @@ export async function createListing(input: ListingInput): Promise<ListingRecord>
     return normalizeRecord(savedDocument.id, savedDocument.data() as Partial<ListingRecord>);
   } catch (error) {
     console.error('Falling back to local submission store after Firestore write failed.', error);
+    assertWritablePersistentStore('Creating listings');
     const items = await readFileStore();
     items.unshift(record);
     await writeFileStore(items);
@@ -286,6 +334,7 @@ export async function updateListingStatus(
   moderationNote: string
 ): Promise<ListingRecord> {
   if (!isFirestoreConfigured()) {
+    assertWritablePersistentStore('Updating moderation status');
     const items = await readFileStore();
     const index = items.findIndex((item) => item.id === id && item.moduleKey === moduleKey);
 
@@ -326,6 +375,7 @@ export async function updateListingStatus(
     return normalizeRecord(snapshot.id, snapshot.data() as Partial<ListingRecord>);
   } catch (error) {
     console.error('Falling back to local submission store after Firestore moderation update failed.', error);
+    assertWritablePersistentStore('Updating moderation status');
     const items = await readFileStore();
     const index = items.findIndex((item) => item.id === id && item.moduleKey === moduleKey);
 
