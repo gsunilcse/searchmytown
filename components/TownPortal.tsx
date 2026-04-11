@@ -381,7 +381,7 @@ export default function TownPortal({ initialTownId = null, availableTowns, viewe
             </div>
 
             <div className="hidden min-w-0 xl:block">
-              <div className="flex min-w-0 items-center justify-start gap-0.5 overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden 2xl:justify-center 2xl:gap-1.5 2xl:px-2">
+              <div className="flex min-w-0 items-center justify-start gap-0.5 px-1 2xl:justify-center 2xl:gap-1.5 2xl:px-2">
                 {visibleCategories.map((category) => (
                   <CategoryMenu
                     key={category.label}
