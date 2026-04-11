@@ -79,7 +79,9 @@ export const NAV_CATEGORIES: NavCategory[] = [
     color: '#6b7280',
     items: [
       { label: 'Local Events', icon: '📅', moduleKey: 'events', action: 'browse' },
+      { label: 'Function Halls', icon: '🏛️', moduleKey: 'function-halls', action: 'browse' },
       { label: 'Publish Event', icon: '📝', moduleKey: 'events', action: 'publish' },
+      { label: 'Publish Function Hall', icon: '📝', moduleKey: 'function-halls', action: 'publish' },
     ],
   },
   {

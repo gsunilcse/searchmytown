@@ -111,6 +111,14 @@ const MODULE_SEARCH_TERMS: Record<
     intro:
       'Event pages make a town more crawlable around recurring searches tied to festivals, public programs, and community gatherings.',
   },
+  'function-halls': {
+    headTerms: ['function halls', 'event venues'],
+    nearbyTerms: ['function halls near me', 'marriage halls near me', 'birthday venues near me'],
+    relatedTerms: ['wedding halls in town', 'family event venues in town', 'party halls in town'],
+    heading: 'Function halls and event venues near you',
+    intro:
+      'Function hall pages help visitors find venues for marriages, birthdays, and family gatherings within a specific town instead of broad city-wide results.',
+  },
 };
 
 type BuildMetadataInput = {

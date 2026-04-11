@@ -8,7 +8,8 @@ export type DirectoryModuleKey =
   | 'hotels'
   | 'helpers'
   | 'travel'
-  | 'events';
+  | 'events'
+  | 'function-halls';
 
 export type ModuleDefinition = {
   key: DirectoryModuleKey;
@@ -176,6 +177,21 @@ export const MODULE_DEFINITIONS: Record<DirectoryModuleKey, ModuleDefinition> = 
     emptyState: 'No approved events are live for this town yet.',
     titlePlaceholder: 'Example: Ugadi cultural celebration',
     summaryPlaceholder: 'Short summary of the event, date, or venue',
+  },
+  'function-halls': {
+    key: 'function-halls',
+    label: 'Function Halls',
+    singularLabel: 'Function hall',
+    collectionName: 'functionHalls',
+    icon: '🏛️',
+    accent: '#52525b',
+    description: 'Approved function halls and venues for marriages, birthdays, and family events in the selected town.',
+    browseTitle: 'Function halls and event venues',
+    publishTitle: 'Publish a function hall',
+    submitButtonLabel: 'Submit function hall',
+    emptyState: 'No approved function halls are live for this town yet.',
+    titlePlaceholder: 'Example: Sri Lakshmi Function Hall',
+    summaryPlaceholder: 'Short summary of venue capacity, occasions hosted, or landmark',
   },
 };
 

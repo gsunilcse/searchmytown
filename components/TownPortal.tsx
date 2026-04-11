@@ -668,7 +668,7 @@ export default function TownPortal({ initialTownId = null, availableTowns, viewe
                 </h2>
               </div>
               <p className="max-w-2xl text-sm leading-7 text-slate-600">
-                The platform is structured to show only town-relevant records across schools, movies, business ads, news, health, restaurants, helpers, travel, and events.
+                The platform is structured to show only town-relevant records across schools, movies, business ads, news, health, restaurants, helpers, travel, events, and function halls.
               </p>
             </div>
 
@@ -735,7 +735,7 @@ export default function TownPortal({ initialTownId = null, availableTowns, viewe
                   <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Select location</p>
                   <h2 className="mt-2 font-[family-name:var(--font-display)] text-3xl text-slate-950">Choose your town</h2>
                   <p className="mt-3 max-w-xl text-sm leading-7 text-slate-600">
-                    Detect your current location or choose a town manually to load town-specific schools, businesses, events, food, health, travel, and helper information.
+                    Detect your current location or choose a town manually to load town-specific schools, businesses, events, function halls, food, health, travel, and helper information.
                   </p>
                 </div>
                 {initialTownId ? (

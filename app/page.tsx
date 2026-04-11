@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic';
 export const metadata: Metadata = buildMetadata({
   title: 'Discover local businesses, restaurants, and services in your town',
   description:
-    'SearchMyTown helps you explore local restaurants, businesses, schools, events, travel contacts, and services in one town-focused directory.',
+    'SearchMyTown helps you explore local restaurants, businesses, schools, events, function halls, travel contacts, and services in one town-focused directory.',
   path: '/',
   keywords: ['discover local businesses', 'town directory', 'restaurants near me', 'local services in my town'],
 });
