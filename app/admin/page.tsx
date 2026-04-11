@@ -63,7 +63,7 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
   return (
     <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col px-4 py-10 sm:px-6 lg:px-8 lg:py-14">
       <div className="mb-6">
-        <Link href="/" className="text-sm font-semibold text-slate-700 transition hover:text-slate-900">
+        <Link href="/" className="text-sm font-semibold text-zinc-400 transition hover:text-white">
           ← Back to town portal
         </Link>
       </div>
@@ -78,15 +78,15 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
       ) : !viewer.isAuthenticated ? (
         <AdminLoginCard errorMessage={getAuthErrorMessage(params.error)} callbackUrl="/admin" />
       ) : !canAccessAdmin(viewer) ? (
-        <div className="rounded-[2rem] border border-slate-200 bg-white/92 p-8 shadow-[0_24px_64px_rgba(15,23,42,0.12)]">
-          <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Access required</p>
-          <h1 className="mt-3 font-display text-4xl text-slate-950">This account does not have admin access yet</h1>
-          <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-600">
-            Use the Login / Signup workspace to request townadmin access for an enabled town. Superadmin approval is required before this moderation area opens.
+        <div className="premium-card p-12 text-center">
+          <p className="text-xs font-bold uppercase tracking-[0.3em] text-emerald-500">Access Restricted</p>
+          <h1 className="mt-4 font-display text-4xl text-white">Administrative clearance insufficient</h1>
+          <p className="mt-6 max-w-2xl mx-auto text-zinc-400 leading-relaxed">
+            Your current credentials do not grant access to the moderation cluster. Please submit a town-specific access request through the signup portal.
           </p>
-          <div className="mt-8">
-            <Link href="/login" className="inline-flex rounded-full border border-slate-950 bg-slate-950 px-6 py-3 text-sm font-semibold text-white transition hover:bg-slate-800">
-              Open Login / Signup
+          <div className="mt-10">
+            <Link href="/login" className="inline-flex rounded-full bg-white px-8 py-4 text-sm font-bold text-zinc-950 transition hover:bg-zinc-200">
+              Open Permission Gateway
             </Link>
           </div>
         </div>

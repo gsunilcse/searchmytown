@@ -4,6 +4,25 @@ import Link from 'next/link';
 import { signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { startTransition, useDeferredValue, useEffect, useMemo, useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { 
+  Search, 
+  MapPin, 
+  ChevronDown, 
+  LogOut, 
+  User, 
+  Settings, 
+  Menu, 
+  X, 
+  ArrowRight,
+  TrendingUp,
+  Newspaper,
+  Info,
+  ExternalLink,
+  ChevronRight,
+  Navigation
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { getTownModulePath, getTownPublishPath } from '@/config/modules';
 import type { AppViewer } from '@/lib/auth';
 import {
@@ -26,7 +45,7 @@ type HeroSlide = {
   description: string;
   accent: string;
   glow: string;
-  stats: string[];
+  stats: { label: string; value: string }[];
 };
 
 type NewsItem = {
@@ -36,16 +55,16 @@ type NewsItem = {
 };
 
 const moduleDescriptions: Record<string, string> = {
-  schools: 'Browse schools, colleges, and publish verified institution details for your town.',
-  news: 'See approved local headlines, updates, announcements, and community stories.',
-  ads: 'Discover promotions, offers, and business advertisements relevant to your area.',
-  health: 'Access hospitals, clinics, and essential healthcare contacts close to you.',
-  movies: 'Check theatres, entertainment listings, and local event schedules.',
-  restaurants: 'Find places to eat, compare options, and publish restaurant details.',
-  hotels: 'Compare hotels, lodges, and stay options reviewed for your town.',
-  travel: 'Explore transport contacts and town-to-town travel information.',
-  helpers: 'Connect with helpers, technicians, and service providers near your locality.',
-  events: 'Track local celebrations, public notices, and community happenings.',
+  schools: 'Verified local schools and institution details.',
+  news: 'Latest headlines and official announcements.',
+  ads: 'Top business deals and local advertisements.',
+  health: 'Nearby hospitals and essential health contacts.',
+  movies: 'Theatres, events, and local entertainment.',
+  restaurants: 'The best local food and dining spots.',
+  hotels: 'Stay options and travel accommodations.',
+  travel: 'Public transport and local travel guides.',
+  helpers: 'Trusted technicians and service providers.',
+  events: 'Community celebrations and public notices.',
 };
 
 function getNavItemHref(townId: string, item: NavCategory['items'][number]): string {
@@ -61,28 +80,40 @@ function getTownLoginPath(townId: string): string {
 function buildHeroSlides(town: Town): HeroSlide[] {
   return [
     {
-      eyebrow: 'Town dashboard',
-      title: `Welcome to ${town.name}`,
-      description: `A single local portal for news, schools, business ads, food, health services, and trusted helpers in ${town.name}.`,
-      accent: 'from-[#2a3338] via-[#1f272c] to-[#151c20]',
-      glow: 'rgba(16, 24, 29, 0.34)',
-      stats: ['Town-specific discovery', 'Fast location-based access', `${town.state} coverage`],
+      eyebrow: 'Local Insight',
+      title: `The heart of ${town.name}`,
+      description: `Your central hub for verified news, schools, business ads, and health services in ${town.name}.`,
+      accent: 'from-emerald-600/20 via-zinc-900 to-zinc-950',
+      glow: 'rgba(16, 185, 129, 0.2)',
+      stats: [
+        { label: 'Coverage', value: 'Town-wide' },
+        { label: 'Access', value: 'Instant' },
+        { label: 'State', value: town.state },
+      ],
     },
     {
-      eyebrow: 'Publish and explore',
-      title: `Local businesses and services for ${town.name}`,
-      description: 'Surface restaurants, shopping deals, travel contacts, and community listings with clear category entry points.',
-      accent: 'from-[#4b5563] via-[#2f3540] to-[#18181b]',
-      glow: 'rgba(82, 82, 91, 0.28)',
-      stats: ['Business ads', 'Restaurant directory', 'Travel contacts'],
+      eyebrow: 'Marketplace',
+      title: 'Business & Discoveries',
+      description: 'Explore curated local restaurants, shopping deals, and professional services tailored for your neighborhood.',
+      accent: 'from-amber-600/20 via-zinc-900 to-zinc-950',
+      glow: 'rgba(245, 158, 11, 0.2)',
+      stats: [
+        { label: 'Verified', value: '100%' },
+        { label: 'Categories', value: 'Direct' },
+        { label: 'Focus', value: 'Local' },
+      ],
     },
     {
-      eyebrow: 'Community updates',
-      title: `Stay connected with what matters in ${town.name}`,
-      description: 'Follow local news, events, healthcare options, and everyday essentials without leaving the town context.',
-      accent: 'from-[#475258] via-[#2f383d] to-[#1b2227]',
-      glow: 'rgba(80, 92, 98, 0.3)',
-      stats: ['Live local news', 'Health access', 'Events and notices'],
+      eyebrow: 'Connection',
+      title: 'Community First',
+      description: 'Stay updated with live news, healthcare alerts, and essential events without losing touch with your roots.',
+      accent: 'from-blue-600/20 via-zinc-900 to-zinc-950',
+      glow: 'rgba(59, 130, 246, 0.2)',
+      stats: [
+        { label: 'Updates', value: 'Real-time' },
+        { label: 'Support', value: '24/7' },
+        { label: 'Events', value: 'Local' },
+      ],
     },
   ];
 }
@@ -177,43 +208,55 @@ function CategoryMenu({
 }) {
   return (
     <div
-      className="relative shrink-0 pb-3"
+      className="relative shrink-0"
       onMouseEnter={onOpen}
       onMouseLeave={onClose}
     >
       <button
         type="button"
-        className="flex h-9 items-center gap-1.5 whitespace-nowrap rounded-full px-2 py-2 text-xs font-semibold text-white/90 transition hover:bg-white/10 hover:text-white 2xl:h-10 2xl:gap-2 2xl:px-3 2xl:text-[13px]"
+        className={cn(
+          "group flex h-10 items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 text-sm font-medium transition-all duration-300",
+          active 
+            ? "bg-white/10 text-white" 
+            : "text-zinc-400 hover:bg-white/5 hover:text-white"
+        )}
         onFocus={onOpen}
-        onClick={onOpen}
         aria-expanded={active}
       >
-        <span>{category.icon}</span>
-        <span>{category.label}</span>
-        <span className="text-[9px] text-white/70 2xl:text-[10px]">▼</span>
+        <span className="text-xl transition-transform duration-300 group-hover:scale-110">{category.icon}</span>
+        <span className="hidden 2xl:inline">{category.label}</span>
+        <ChevronDown className={cn("h-3 w-3 opacity-50 transition-transform duration-300", active && "rotate-180")} />
       </button>
 
-      {active ? (
-        <div className="absolute left-0 top-full z-30 w-64 pt-2">
-          <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-[0_24px_60px_rgba(16,24,29,0.18)]">
-            <div className="border-b border-slate-100 px-4 py-3 text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
-              {category.label}
+      <AnimatePresence>
+        {active && (
+          <motion.div
+            initial={{ opacity: 0, y: 10, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 10, scale: 0.95 }}
+            transition={{ duration: 0.2, ease: "easeOut" }}
+            className="absolute left-0 top-full z-30 w-72 pt-3"
+          >
+            <div className="overflow-hidden rounded-2xl border border-white/10 bg-zinc-900/90 p-2 shadow-2xl backdrop-blur-xl">
+              <div className="px-3 py-2 text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">
+                {category.label}
+              </div>
+              <div className="grid gap-1">
+                {category.items.map((item) => (
+                  <Link
+                    key={item.label}
+                    href={getNavItemHref(townId, item)}
+                    className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-zinc-300 transition-colors hover:bg-white/5 hover:text-white"
+                  >
+                    <span className="text-lg">{item.icon}</span>
+                    <span>{item.label}</span>
+                  </Link>
+                ))}
+              </div>
             </div>
-            <div className="space-y-1 px-2 pb-2">
-              {category.items.map((item) => (
-                <Link
-                  key={item.label}
-                  href={getNavItemHref(townId, item)}
-                  className="flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-100 hover:text-slate-950"
-                >
-                  <span>{item.icon}</span>
-                  <span>{item.label}</span>
-                </Link>
-              ))}
-            </div>
-          </div>
-        </div>
-      ) : null}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -255,6 +298,7 @@ export default function TownPortal({ initialTownId = null, availableTowns, viewe
   const newsItems = useMemo(() => (selectedTown ? buildNews(selectedTown) : []), [selectedTown]);
   const storyItems = useMemo(() => buildTownStory(), []);
   const canAccessAdminWorkspace = viewer.roles.includes('townadmin') || viewer.roles.includes('super-admin');
+  
   const visibleCategories = useMemo(
     () => {
       if (!selectedTown) {
@@ -345,18 +389,25 @@ export default function TownPortal({ initialTownId = null, availableTowns, viewe
   if (!selectedTown) {
     return (
       <main className="mx-auto flex min-h-screen max-w-3xl flex-col justify-center px-6 py-20 text-center">
-        <h1 className="font-display text-4xl text-slate-950">No towns are enabled right now</h1>
-        <p className="mt-4 text-base leading-8 text-slate-600">
-          Enable at least one town in the admin panel before publishing the public directory.
-        </p>
-        <div className="mt-8">
-          <Link
-            href="/login"
-            className="inline-flex rounded-full border border-slate-950 bg-slate-950 px-6 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
-          >
-            Login / Signup
-          </Link>
-        </div>
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="glass-panel rounded-[2.5rem] p-12"
+        >
+          <h1 className="font-display text-4xl text-white">No towns are enabled right now</h1>
+          <p className="mt-4 text-base leading-8 text-zinc-400">
+            Enable at least one town in the admin panel before publishing the public directory.
+          </p>
+          <div className="mt-8">
+            <Link
+              href="/login"
+              className="inline-flex items-center gap-2 rounded-full bg-emerald-500 px-8 py-4 text-sm font-semibold text-zinc-950 transition-all hover:bg-emerald-400 hover:scale-105"
+            >
+              <User className="h-4 w-4" />
+              Login / Signup
+            </Link>
+          </div>
+        </motion.div>
       </main>
     );
   }
@@ -364,24 +415,33 @@ export default function TownPortal({ initialTownId = null, availableTowns, viewe
   const activeSlide = heroSlides[activeSlideIndex] ?? heroSlides[0];
 
   return (
-    <div className="min-h-screen overflow-x-clip bg-[radial-gradient(circle_at_top_left,_rgba(161,161,170,0.14),_transparent_24%),linear-gradient(180deg,_#fafafa_0%,_#f3f4f6_42%,_#ededed_100%)] text-slate-950">
-      <header className="sticky top-0 z-40 border-b border-black/18 bg-[linear-gradient(90deg,_#222b30_0%,_#293238_38%,_#232c31_100%)] shadow-[0_16px_45px_rgba(16,24,29,0.22)] backdrop-blur-xl">
-        <div className="w-full px-2 py-3 sm:px-3 lg:px-4">
-          <div className="flex items-center justify-between gap-4 xl:grid xl:grid-cols-[minmax(190px,240px)_minmax(0,1fr)_auto] xl:items-center xl:gap-4 2xl:grid-cols-[minmax(220px,280px)_minmax(0,1fr)_auto] 2xl:gap-6">
-            <div className="flex min-w-0 shrink-0 items-center gap-3 xl:min-w-[190px] 2xl:min-w-[220px]">
-              <div className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-white/8 text-lg text-white shadow-inner shadow-black/10 ring-1 ring-white/10">
-                🔎
+    <div className="min-h-screen bg-zinc-950 text-white selection:bg-emerald-500/30">
+      <div className="bg-mesh pointer-events-none" />
+      
+      <header className="sticky top-0 z-40 border-b border-white/5 bg-zinc-950/80 backdrop-blur-xl">
+        <div className="mx-auto max-w-[1600px] px-4 py-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between gap-4">
+            {/* Logo & Town Info */}
+            <div className="flex items-center gap-4">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500 to-blue-600 p-2.5 shadow-lg shadow-emerald-500/20">
+                <Search className="h-full w-full text-white" />
               </div>
-              <div className="min-w-0 text-left">
-                <div className="text-xs font-semibold tracking-[0.12em] text-slate-300 sm:text-sm">searchmytown.com</div>
-                <div className="max-w-[10rem] text-sm font-semibold leading-5 text-white sm:max-w-[15rem] sm:text-base xl:max-w-[12rem] 2xl:max-w-none">
-                  {selectedTown.name}, {selectedTown.state}
-                </div>
+              <div className="hidden sm:block">
+                <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">searchmytown.com</div>
+                <button 
+                  onClick={() => setIsLocationModalOpen(true)}
+                  className="group flex items-center gap-1.5 text-lg font-bold transition-colors hover:text-emerald-400"
+                >
+                  <MapPin className="h-4 w-4 text-emerald-500" />
+                  <span>{selectedTown.name}, {selectedTown.state}</span>
+                  <ChevronDown className="h-3 w-3 text-zinc-500 transition-transform group-hover:translate-y-0.5" />
+                </button>
               </div>
             </div>
 
-            <div className="hidden min-w-0 xl:block">
-              <div className="flex min-w-0 items-center justify-start gap-0.5 px-1 2xl:justify-center 2xl:gap-1.5 2xl:px-2">
+            {/* Desktop Navigation */}
+            <div className="hidden flex-1 justify-center lg:flex">
+              <nav className="flex items-center gap-1">
                 {visibleCategories.map((category) => (
                   <CategoryMenu
                     key={category.label}
@@ -389,412 +449,462 @@ export default function TownPortal({ initialTownId = null, availableTowns, viewe
                     townId={selectedTown.id}
                     active={activeMenu === category.label}
                     onOpen={() => setActiveMenu(category.label)}
-                    onClose={() => setActiveMenu((currentValue) => (currentValue === category.label ? null : currentValue))}
+                    onClose={() => setActiveMenu((curr) => (curr === category.label ? null : curr))}
                   />
                 ))}
-              </div>
+              </nav>
             </div>
 
-            <div className="hidden shrink-0 items-center justify-end gap-2 xl:flex xl:min-w-[118px] 2xl:min-w-[132px]">
+            {/* User Actions */}
+            <div className="flex items-center gap-3">
               {viewer.isAuthenticated ? (
                 <div className="relative">
                   <button
                     type="button"
-                    onClick={() => setAccountMenuOpen((value) => !value)}
-                    suppressHydrationWarning
-                    className="shrink-0 whitespace-nowrap rounded-full border border-slate-500 bg-white px-3 py-2 text-sm font-semibold text-slate-900 transition hover:bg-slate-200 hover:text-slate-950 2xl:px-4 2xl:py-2.5"
+                    onClick={() => setAccountMenuOpen((v) => !v)}
+                    className="flex h-10 items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 text-sm font-medium transition-all hover:bg-white/10"
                   >
-                    Account
+                    <User className="h-4 w-4 text-zinc-400" />
+                    <span>Account</span>
+                    <ChevronDown className={cn("h-3 w-3 text-zinc-500 transition-transform", accountMenuOpen && "rotate-180")} />
                   </button>
 
-                  {accountMenuOpen ? (
-                    <div className="absolute right-0 top-full z-30 mt-2 w-72 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_24px_60px_rgba(16,24,29,0.18)]">
-                      <div className="border-b border-slate-100 px-4 py-3">
-                        <div className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Signed in</div>
-                        <div className="mt-2 text-sm font-semibold text-slate-900">{viewer.email}</div>
-                      </div>
-                      <div className="space-y-1 p-2">
-                        {canAccessAdminWorkspace ? (
-                          <Link
-                            href="/admin"
-                            onClick={() => setAccountMenuOpen(false)}
-                            className="block rounded-xl px-3 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-100 hover:text-slate-950"
-                          >
-                            Open moderation workspace
-                          </Link>
-                        ) : null}
-                        <button
-                          type="button"
-                          onClick={() => void handleSignOut()}
-                          suppressHydrationWarning
-                          className="block w-full rounded-xl px-3 py-3 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-100 hover:text-slate-950"
-                        >
-                          Log out
-                        </button>
-                      </div>
-                    </div>
-                  ) : null}
+                  <AnimatePresence>
+                    {accountMenuOpen && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                        className="absolute right-0 top-full z-50 mt-3 w-72"
+                      >
+                        <div className="overflow-hidden rounded-2xl border border-white/10 bg-zinc-900 shadow-2xl backdrop-blur-xl">
+                          <div className="border-b border-white/5 bg-white/5 px-4 py-4">
+                            <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">Signed in as</div>
+                            <div className="mt-1 truncate font-medium text-white">{viewer.email}</div>
+                          </div>
+                          <div className="p-2">
+                            {canAccessAdminWorkspace && (
+                              <Link
+                                href="/admin"
+                                onClick={() => setAccountMenuOpen(false)}
+                                className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-zinc-300 transition-colors hover:bg-white/5 hover:text-white"
+                              >
+                                <Settings className="h-4 w-4" />
+                                Admin Console
+                              </Link>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => void handleSignOut()}
+                              className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-red-400 transition-colors hover:bg-red-500/10"
+                            >
+                              <LogOut className="h-4 w-4" />
+                              Log out
+                            </button>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
               ) : (
                 <Link
                   href={getTownLoginPath(selectedTown.id)}
-                  className="shrink-0 whitespace-nowrap rounded-full border border-slate-500 bg-white px-3 py-2 text-sm font-semibold text-slate-900 transition hover:bg-slate-200 hover:text-slate-950 2xl:px-4 2xl:py-2.5"
+                  className="rounded-full bg-white px-5 py-2 text-sm font-bold text-zinc-950 transition-all hover:bg-zinc-200 hover:scale-105"
                 >
-                  Login / Signup
+                  Join Community
                 </Link>
               )}
-            </div>
 
-            <button
-              type="button"
-              className="ml-auto grid h-11 w-11 place-items-center rounded-2xl border border-white/20 bg-white/12 text-xl text-white xl:hidden"
-              onClick={() => setMobileMenuOpen((value) => !value)}
-              aria-label="Toggle navigation"
-            >
-              {mobileMenuOpen ? '×' : '☰'}
-            </button>
+              {/* Mobile Menu Toggle */}
+              <button
+                type="button"
+                className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/5 lg:hidden"
+                onClick={() => setMobileMenuOpen((v) => !v)}
+              >
+                {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+              </button>
+            </div>
           </div>
         </div>
 
-        {mobileMenuOpen ? (
-          <div className="border-t border-white/15 px-4 pb-4 xl:hidden">
-            <div className="space-y-3 pt-4">
-              <div className="grid gap-3 sm:grid-cols-2">
-                {availableTowns.length > 1 ? (
-                  <button
-                    type="button"
-                    onClick={() => setIsLocationModalOpen(true)}
-                    className="w-full rounded-2xl bg-white/10 px-4 py-3 text-left text-sm font-semibold text-white"
-                  >
-                    Change town: {selectedTown.name}
-                  </button>
-                ) : null}
-                {viewer.isAuthenticated ? (
-                  <button
-                    type="button"
-                    onClick={() => setAccountMenuOpen((value) => !value)}
-                    suppressHydrationWarning
-                    className={`block rounded-2xl bg-white px-4 py-3 text-center text-sm font-semibold text-slate-900 ${availableTowns.length > 1 ? '' : 'sm:col-span-2'}`}
-                  >
-                    Account
-                  </button>
-                ) : (
-                  <Link
-                    href={getTownLoginPath(selectedTown.id)}
-                    className={`block rounded-2xl bg-white px-4 py-3 text-center text-sm font-semibold text-slate-900 ${availableTowns.length > 1 ? '' : 'sm:col-span-2'}`}
-                  >
-                    Login / Signup
-                  </Link>
-                )}
-              </div>
-              {viewer.isAuthenticated && accountMenuOpen ? (
-                <div className="rounded-2xl bg-white/10 p-3 text-white">
-                  <div className="rounded-2xl bg-white px-4 py-4 text-slate-900">
-                    <div className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Signed in</div>
-                    <div className="mt-2 text-sm font-semibold">{viewer.email}</div>
-                    <div className="mt-4 space-y-2">
-                      {canAccessAdminWorkspace ? (
-                        <Link
-                          href="/admin"
-                          onClick={() => {
-                            setAccountMenuOpen(false);
-                            setMobileMenuOpen(false);
-                          }}
-                          className="block rounded-xl bg-slate-100 px-4 py-3 text-center text-sm font-semibold text-slate-900"
-                        >
-                          Open moderation workspace
-                        </Link>
-                      ) : null}
-                      <button
-                        type="button"
-                        onClick={() => void handleSignOut()}
-                        suppressHydrationWarning
-                        className="block w-full rounded-xl bg-slate-900 px-4 py-3 text-center text-sm font-semibold text-white"
-                      >
-                        Log out
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ) : null}
-              <div className="grid gap-3">
-                {visibleCategories.map((category) => (
-                  <details key={category.label} className="overflow-hidden rounded-2xl bg-white/10">
-                    <summary className="cursor-pointer list-none px-4 py-3 text-sm font-semibold text-white">
-                      <span className="mr-2">{category.icon}</span>
-                      {category.label}
-                    </summary>
-                    <div className="space-y-1 px-2 pb-2">
-                      {category.items.map((item) => (
-                        <Link
-                          key={item.label}
-                          href={getNavItemHref(selectedTown.id, item)}
-                          className="block rounded-xl px-3 py-3 text-sm text-white/92 transition hover:bg-white/10"
-                        >
-                          {item.icon} {item.label}
-                        </Link>
-                      ))}
-                    </div>
-                  </details>
-                ))}
-              </div>
-            </div>
-          </div>
-        ) : null}
-      </header>
-
-      <main className={isLocationModalOpen ? 'pointer-events-none select-none blur-[3px]' : ''}>
-        <section className="mx-auto max-w-7xl px-4 pb-10 pt-8 sm:px-6 lg:px-8 lg:pt-12">
-          <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.32em] text-slate-500">Town-first experience</p>
-              <h1 className="mt-3 font-[family-name:var(--font-display)] text-4xl leading-tight text-slate-950 sm:text-5xl lg:text-6xl">
-                Welcome to {selectedTown.name}
-              </h1>
-              <p className="mt-4 max-w-2xl text-base leading-8 text-slate-600 sm:text-lg">
-                Explore approved local content, browse services by category, and publish community information for {selectedTown.name}, {selectedTown.state}.
-              </p>
-          </div>
-        </section>
-
-        <section className="mx-auto grid max-w-7xl gap-8 px-4 pb-10 sm:px-6 lg:grid-cols-[minmax(0,1.65fr)_minmax(320px,0.95fr)] lg:px-8">
-          <div className="relative overflow-hidden rounded-[2rem] border border-white/80 bg-white/88 p-5 shadow-[0_30px_80px_rgba(16,24,29,0.1)] backdrop-blur-xl sm:p-7">
-            <div
-              className={`relative min-h-[420px] overflow-hidden rounded-[1.75rem] bg-gradient-to-br ${activeSlide.accent} p-8 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.2)] sm:min-h-[500px] sm:p-10`}
-              style={{ boxShadow: `inset 0 1px 0 rgba(255,255,255,0.2), 0 36px 70px ${activeSlide.glow}` }}
+        {/* Mobile Navigation Menu */}
+        <AnimatePresence>
+          {mobileMenuOpen && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              className="border-t border-white/5 bg-zinc-900/50 xl:hidden"
             >
-              <div className="absolute inset-0 bg-[radial-gradient(circle_at_15%_20%,rgba(255,255,255,0.34),transparent_24%),radial-gradient(circle_at_85%_20%,rgba(255,255,255,0.2),transparent_18%),radial-gradient(circle_at_50%_80%,rgba(255,255,255,0.16),transparent_20%)]" />
-              <div className="absolute -right-16 bottom-0 h-64 w-64 rounded-full bg-white/10 blur-2xl" />
-              <div className="absolute left-1/2 top-10 hidden -translate-x-1/2 rounded-full border border-white/12 bg-black/10 px-6 py-2 text-xs font-semibold uppercase tracking-[0.36em] text-slate-200 sm:block">
-                {selectedTown.name} portal preview
-              </div>
-
-              <div className="relative flex h-full flex-col justify-between gap-8">
-                <div className="max-w-2xl">
-                  <span className="inline-flex rounded-full border border-white/12 bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.28em] text-slate-200">
-                    {activeSlide.eyebrow}
-                  </span>
-                  <h2 className="mt-6 max-w-2xl font-[family-name:var(--font-display)] text-4xl leading-tight sm:text-5xl">
-                    {activeSlide.title}
-                  </h2>
-                  <p className="mt-5 max-w-xl text-base leading-8 text-white/88 sm:text-lg">
-                    {activeSlide.description}
-                  </p>
-                </div>
-
-                <div className="grid gap-3 sm:grid-cols-3">
-                  {activeSlide.stats.map((stat) => (
-                    <div key={stat} className="rounded-2xl border border-white/20 bg-white/10 px-4 py-4 backdrop-blur-sm">
-                      <div className="text-xs font-semibold uppercase tracking-[0.28em] text-slate-300">Focus</div>
-                      <div className="mt-2 text-lg font-semibold text-white">{stat}</div>
-                    </div>
+              <div className="space-y-4 p-4">
+                <div className="grid gap-2">
+                  {visibleCategories.map((category) => (
+                    <details key={category.label} className="group overflow-hidden rounded-xl border border-white/5 bg-white/5">
+                      <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3 text-sm font-medium">
+                        <div className="flex items-center gap-3">
+                          <span className="text-lg">{category.icon}</span>
+                          <span>{category.label}</span>
+                        </div>
+                        <ChevronDown className="h-4 w-4 text-zinc-500 transition-transform group-open:rotate-180" />
+                      </summary>
+                      <div className="grid gap-1 border-t border-white/5 p-1 bg-black/20">
+                        {category.items.map((item) => (
+                          <Link
+                            key={item.label}
+                            href={getNavItemHref(selectedTown.id, item)}
+                            onClick={() => setMobileMenuOpen(false)}
+                            className="flex items-center gap-3 rounded-lg px-4 py-3 text-sm text-zinc-400 hover:text-white"
+                          >
+                            <span className="text-lg">{item.icon}</span>
+                            <span>{item.label}</span>
+                          </Link>
+                        ))}
+                      </div>
+                    </details>
                   ))}
                 </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </header>
 
-                <div className="flex items-center justify-between gap-4">
-                  <div className="flex items-center gap-3">
-                    {heroSlides.map((slide, index) => (
-                      <button
-                        key={slide.title}
-                        type="button"
-                        className={`h-3 rounded-full transition ${index === activeSlideIndex ? 'w-10 bg-white' : 'w-3 bg-white/35'}`}
-                        onClick={() => setActiveSlideIndex(index)}
-                        aria-label={`Show slide ${index + 1}`}
-                      />
+      <main className={cn("transition-all duration-500", isLocationModalOpen && "blur-xl scale-95 origin-center")}>
+        {/* Hero Section */}
+        <section className="relative overflow-hidden px-4 pt-16 pb-24 sm:px-6 lg:px-8">
+          <div className="mx-auto max-w-7xl">
+            <div className="grid gap-12 lg:grid-cols-2 lg:items-center">
+              <motion.div
+                initial={{ opacity: 0, x: -30 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.6 }}
+                className="min-w-0"
+              >
+                <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-4 py-1.5 text-xs font-bold uppercase tracking-widest text-emerald-400">
+                  <TrendingUp className="h-3 w-3" />
+                  Town Directory 2.0
+                </div>
+                <h1 className="mt-6 font-display text-4xl leading-[1.1] text-white sm:text-6xl lg:text-7xl break-words hyphens-auto">
+                  Discover the soul of <span className="text-emerald-500">{selectedTown.name}</span>
+                </h1>
+                <p className="mt-8 text-lg leading-relaxed text-zinc-400 sm:text-xl">
+                  The ultimate local platform. Explore approved institutions, verified businesses, and live community updates in {selectedTown.name}, {selectedTown.state}.
+                </p>
+                <div className="mt-10 flex flex-wrap gap-4">
+                  <button 
+                    onClick={() => document.getElementById('browse-modules')?.scrollIntoView({ behavior: 'smooth' })}
+                    className="group flex items-center gap-2 rounded-full bg-white px-8 py-4 text-sm font-bold text-zinc-950 transition-all hover:bg-zinc-200 hover:scale-105"
+                  >
+                    Start Exploring
+                    <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+                  </button>
+                  <button 
+                    onClick={() => setIsLocationModalOpen(true)}
+                    className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-8 py-4 text-sm font-bold transition-all hover:bg-white/10"
+                  >
+                    Change Town
+                  </button>
+                </div>
+              </motion.div>
+
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9, y: 30 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                transition={{ duration: 0.8 }}
+                className="relative min-w-0 lg:ml-auto w-full max-w-2xl"
+              >
+                <div className="premium-card relative z-10 p-2 sm:p-4 overflow-hidden">
+                  <div className={cn("relative min-h-[400px] overflow-hidden rounded-[1.5rem] bg-gradient-to-br p-8 transition-all duration-1000", activeSlide.accent)}>
+                    <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-10" />
+                    
+                    <AnimatePresence mode="wait">
+                      <motion.div
+                        key={activeSlide.title}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -20 }}
+                        className="relative flex h-full flex-col justify-between"
+                      >
+                        <div>
+                          <span className="text-xs font-bold uppercase tracking-[0.3em] text-zinc-400">{activeSlide.eyebrow}</span>
+                          <h2 className="mt-4 font-display text-3xl sm:text-4xl text-white">{activeSlide.title}</h2>
+                          <p className="mt-4 max-w-md text-sm text-white/70 leading-relaxed">{activeSlide.description}</p>
+                        </div>
+
+                        <div className="mt-12 grid grid-cols-3 gap-3">
+                          {activeSlide.stats.map((stat) => (
+                            <div key={stat.label} className="rounded-xl bg-white/5 p-3 backdrop-blur-md border border-white/10">
+                              <div className="text-[10px] font-bold uppercase tracking-wider text-white/40">{stat.label}</div>
+                              <div className="mt-1 text-sm font-bold text-white">{stat.value}</div>
+                            </div>
+                          ))}
+                        </div>
+                      </motion.div>
+                    </AnimatePresence>
+
+                    {/* Navigation Dots */}
+                    <div className="absolute bottom-8 left-8 flex gap-1.5">
+                      {heroSlides.map((_, idx) => (
+                        <button
+                          key={idx}
+                          onClick={() => setActiveSlideIndex(idx)}
+                          className={cn(
+                            "h-1 rounded-full transition-all duration-500",
+                            idx === activeSlideIndex ? "w-8 bg-white" : "w-2 bg-white/20 hover:bg-white/40"
+                          )}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+                {/* Decorative glows */}
+                <div className="absolute -top-12 -right-12 h-64 w-64 rounded-full bg-emerald-500/10 blur-[100px]" />
+                <div className="absolute -bottom-12 -left-12 h-64 w-64 rounded-full bg-blue-500/10 blur-[100px]" />
+              </motion.div>
+            </div>
+          </div>
+        </section>
+
+        {/* Quick Access Grid */}
+        <section id="browse-modules" className="mx-auto max-w-7xl px-4 py-24 sm:px-6 lg:px-8">
+          <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between px-2">
+            <div>
+              <div className="text-xs font-bold uppercase tracking-[0.3em] text-emerald-500">Service Directory</div>
+              <h2 className="mt-4 font-display text-4xl sm:text-5xl">Explore by Categories</h2>
+            </div>
+            <p className="max-w-xl text-zinc-400">
+              Direct access to town-filtered records across all major sectors. We only show what is relevant to {selectedTown.name}.
+            </p>
+          </div>
+
+          <div className="mt-16 grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {QUICK_CARDS.map((card, idx) => (
+              <motion.div
+                key={card.label}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: idx * 0.05 }}
+              >
+                <Link
+                  href={getTownModulePath(selectedTown.id, card.moduleKey)}
+                  style={{'--card-glow': `${card.color}22`} as any}
+                  className="group premium-card block h-full relative"
+                >
+                  <div 
+                    className="flex h-14 w-14 items-center justify-center rounded-2xl transition-all duration-300 group-hover:scale-110 group-hover:rotate-3 shadow-inner"
+                    style={{ backgroundColor: `${card.color}20`, color: card.color }}
+                  >
+                    <span className="text-3xl">{card.icon}</span>
+                  </div>
+                  <h3 className="mt-6 text-xl font-bold transition-colors group-hover:text-emerald-400">{card.label}</h3>
+                  <p className="mt-3 text-sm leading-relaxed text-zinc-500 line-clamp-2">
+                    {moduleDescriptions[card.moduleKey] ?? card.description}
+                  </p>
+                  <div className="mt-6 flex items-center gap-2 text-xs font-bold text-zinc-400 group-hover:text-white transition-colors">
+                    Browse Records <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+                  </div>
+                </Link>
+              </motion.div>
+            ))}
+          </div>
+        </section>
+
+        {/* Updates Section */}
+        <section className="bg-zinc-900/30 py-24">
+          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <div className="grid gap-12 lg:grid-cols-[1fr_400px]">
+              <div>
+                <div className="flex items-center gap-2 text-emerald-500 text-xs font-bold uppercase tracking-[0.2em]">
+                  <Newspaper className="h-4 w-4" />
+                  Intelligence Feed
+                </div>
+                <h2 className="mt-4 font-display text-4xl">Latest from {selectedTown.name}</h2>
+                
+                <div className="mt-12 space-y-4">
+                  {newsItems.map((item, idx) => (
+                    <motion.article 
+                      key={idx}
+                      whileHover={{ x: 10 }}
+                      className="group flex flex-col gap-2 rounded-2xl border border-white/5 bg-white/5 p-6 transition-all hover:bg-white/10"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-500/80">{item.tag}</span>
+                        <span className="text-[10px] text-zinc-500 font-medium">{item.time}</span>
+                      </div>
+                      <p className="text-lg text-zinc-200 font-medium group-hover:text-white">{item.title}</p>
+                    </motion.article>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-6">
+                <div className="premium-card bg-emerald-500/5 border-emerald-500/20">
+                  <div className="flex items-center gap-3 text-emerald-400">
+                    <Info className="h-5 w-5" />
+                    <span className="text-sm font-bold uppercase tracking-wider">Town Story</span>
+                  </div>
+                  <div className="mt-8 space-y-6">
+                    {storyItems.map((story) => (
+                      <div key={story.label}>
+                        <div className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">{story.label}</div>
+                        <div className="mt-2 text-sm text-zinc-300 font-medium leading-relaxed">{story.value}</div>
+                      </div>
                     ))}
                   </div>
-                  <div className="flex items-center gap-3">
-                    <button
-                      type="button"
-                      className="grid h-12 w-12 place-items-center rounded-full border border-white/20 bg-white/12 text-lg font-semibold text-white transition hover:bg-white/20"
-                      onClick={() => setActiveSlideIndex((currentIndex) => (currentIndex - 1 + heroSlides.length) % heroSlides.length)}
-                      aria-label="Previous slide"
-                    >
-                      ‹
-                    </button>
-                    <button
-                      type="button"
-                      className="grid h-12 w-12 place-items-center rounded-full border border-white/20 bg-white/12 text-lg font-semibold text-white transition hover:bg-white/20"
-                      onClick={() => setActiveSlideIndex((currentIndex) => (currentIndex + 1) % heroSlides.length)}
-                      aria-label="Next slide"
-                    >
-                      ›
-                    </button>
-                  </div>
                 </div>
-              </div>
-            </div>
-          </div>
 
-          <div className="space-y-6">
-            <div className="overflow-hidden rounded-[2rem] border border-slate-200/80 bg-white/90 shadow-[0_26px_70px_rgba(16,24,29,0.08)] backdrop-blur-xl">
-              <div className="flex items-center justify-between bg-[linear-gradient(90deg,_#20292e_0%,_#273137_52%,_#1f272c_100%)] px-5 py-4 text-white">
-                <div className="flex items-center gap-3 text-sm font-semibold uppercase tracking-[0.28em]">
-                  <span>📰</span>
-                  <span>Latest news</span>
+                <div className="premium-card bg-zinc-900 border-white/5">
+                  <h4 className="text-sm font-bold">Admin Controls</h4>
+                  <p className="mt-2 text-xs text-zinc-500 leading-relaxed">
+                    Designed for town-specific moderation and localized growth.
+                  </p>
+                  <Link 
+                    href="/admin" 
+                    className="mt-6 flex items-center justify-center gap-2 rounded-xl bg-white/5 py-4 text-xs font-bold transition-all hover:bg-white/10"
+                  >
+                    Manage Town <ExternalLink className="h-3 w-3" />
+                  </Link>
                 </div>
-                <div className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-300">Live updates</div>
               </div>
-              <div className="space-y-4 p-5">
-                {newsItems.map((item) => (
-                  <article key={item.title} className="rounded-2xl border border-slate-200 bg-slate-50/90 p-4 transition hover:border-slate-300 hover:bg-slate-100/80">
-                    <div className="flex items-center justify-between gap-4 text-xs font-semibold uppercase tracking-[0.22em] text-slate-600">
-                      <span>{item.tag}</span>
-                      <span className="text-slate-400">{item.time}</span>
-                    </div>
-                    <p className="mt-3 text-sm leading-7 text-slate-700">{item.title}</p>
-                  </article>
-                ))}
-              </div>
-            </div>
-
-            <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
-              {storyItems.map((item) => (
-                <div key={item.label} className="rounded-[1.6rem] border border-slate-200 bg-white/92 p-5 shadow-[0_18px_45px_rgba(16,24,29,0.06)]">
-                  <div className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">{item.label}</div>
-                  <p className="mt-3 text-sm leading-7 text-slate-700">{item.value}</p>
-                </div>
-              ))}
             </div>
           </div>
         </section>
 
-        <section className="mx-auto max-w-7xl px-4 pb-10 sm:px-6 lg:px-8">
-          <div className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white/90 p-6 shadow-[0_26px_70px_rgba(16,24,29,0.08)] backdrop-blur-xl sm:p-8">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Quick access</p>
-                <h2 className="mt-3 font-[family-name:var(--font-display)] text-3xl text-slate-950 sm:text-4xl">
-                  Explore {selectedTown.name} by module
-                </h2>
-              </div>
-              <p className="max-w-2xl text-sm leading-7 text-slate-600">
-                The platform is structured to show only town-relevant records across schools, movies, business ads, news, health, restaurants, helpers, travel, events, and function halls.
+        {/* Footer / CTA */}
+        <section className="mx-auto max-w-7xl px-4 py-24 sm:px-6 lg:px-8">
+          <motion.div 
+            whileInView={{ opacity: 1, scale: 1 }}
+            initial={{ opacity: 0, scale: 0.95 }}
+            viewport={{ once: true }}
+            className="rounded-[3rem] bg-gradient-to-tr from-zinc-900 to-zinc-950 p-12 text-center border border-white/5 shadow-2xl relative overflow-hidden"
+          >
+            <div className="absolute top-0 right-0 h-96 w-96 bg-emerald-500/5 blur-[100px]" />
+            <div className="relative z-10">
+              <h2 className="font-display text-4xl sm:text-5xl leading-tight">Ready to join the local <br /> <span className="text-emerald-500">ecosystem?</span></h2>
+              <p className="mt-6 mx-auto max-w-2xl text-zinc-400">
+                Whether you want to browse or publish, searchmytown.com is built for verified local connections. No noise, just your town.
               </p>
-            </div>
-
-            <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {QUICK_CARDS.map((card) => (
-                <Link
-                  key={card.label}
-                  href={getTownModulePath(selectedTown.id, card.moduleKey)}
-                  className="group rounded-[1.75rem] border border-slate-200 bg-[linear-gradient(180deg,_rgba(255,255,255,0.98)_0%,_rgba(244,244,245,0.98)_100%)] p-5 shadow-[0_20px_55px_rgba(16,24,29,0.07)] transition hover:-translate-y-1 hover:border-slate-300 hover:shadow-[0_28px_65px_rgba(82,82,91,0.12)]"
+              <div className="mt-10 flex flex-wrap justify-center gap-4">
+                <Link 
+                  href="/login" 
+                  className="rounded-full bg-white px-10 py-4 text-sm font-bold text-zinc-950 transition-all hover:bg-zinc-200"
                 >
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <div
-                        className="grid h-14 w-14 place-items-center rounded-2xl text-2xl shadow-[inset_0_1px_0_rgba(255,255,255,0.4)]"
-                        style={{ backgroundColor: `${card.color}22`, color: card.color }}
-                      >
-                        {card.icon}
-                      </div>
-                      <h3 className="mt-5 text-xl font-semibold text-slate-900">{card.label}</h3>
-                    </div>
-                    <span className="text-2xl text-slate-300 transition group-hover:translate-x-1 group-hover:text-slate-700">→</span>
-                  </div>
-                  <p className="mt-4 text-sm leading-7 text-slate-600">{moduleDescriptions[card.moduleKey] ?? card.description}</p>
+                  Create Account
                 </Link>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <section className="mx-auto max-w-7xl px-4 pb-16 sm:px-6 lg:px-8">
-          <div className="rounded-[2rem] border border-slate-200 bg-[linear-gradient(135deg,_#111111_0%,_#27272a_45%,_#3f3f46_100%)] p-6 text-white shadow-[0_30px_85px_rgba(16,24,29,0.18)] sm:p-8">
-            <div className="grid gap-6 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.28em] text-slate-300">Functional flow</p>
-                <h2 className="mt-3 font-[family-name:var(--font-display)] text-3xl sm:text-4xl">How the town experience is meant to work</h2>
-                <p className="mt-4 max-w-xl text-sm leading-7 text-white/74 sm:text-base">
-                  Users choose or detect a town first. The application then shows only approved local records and offers publishing flows for supported modules with moderation-ready handoff.
-                </p>
-              </div>
-              <div className="grid gap-4 sm:grid-cols-2">
-                {[
-                  'Select or detect a town on entry.',
-                  'Render town-filtered approved content.',
-                  'Allow publishing for schools, ads, food, travel, helpers, and more.',
-                  'Support review and serviceability management by admin.',
-                ].map((step, index) => (
-                  <div key={step} className="rounded-[1.6rem] border border-white/12 bg-white/8 p-5 backdrop-blur-sm">
-                    <div className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-300">Step 0{index + 1}</div>
-                    <p className="mt-3 text-sm leading-7 text-white/86">{step}</p>
-                  </div>
-                ))}
+                <button 
+                  onClick={() => setIsLocationModalOpen(true)}
+                  className="rounded-full border border-white/10 bg-white/5 px-10 py-4 text-sm font-bold transition-all hover:bg-white/10"
+                >
+                  Switch Town
+                </button>
               </div>
             </div>
-          </div>
+          </motion.div>
         </section>
       </main>
 
-      {isLocationModalOpen ? (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/38 p-4 backdrop-blur-md">
-          <div className="w-full max-w-2xl overflow-hidden rounded-[2rem] border border-white/70 bg-white shadow-[0_36px_110px_rgba(15,23,42,0.24)]">
-            <div className="border-b border-slate-200 px-6 py-5 sm:px-8">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Select location</p>
-                  <h2 className="mt-2 font-[family-name:var(--font-display)] text-3xl text-slate-950">Choose your town</h2>
-                  <p className="mt-3 max-w-xl text-sm leading-7 text-slate-600">
-                    Detect your current location or choose a town manually to load town-specific schools, businesses, events, function halls, food, health, travel, and helper information.
-                  </p>
+      {/* Location Selector Modal */}
+      <AnimatePresence>
+        {isLocationModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 lg:p-8">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => initialTownId && setIsLocationModalOpen(false)}
+              className="absolute inset-0 bg-zinc-950/80 backdrop-blur-xl"
+            />
+            
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative w-full max-w-4xl overflow-hidden rounded-[2.5rem] border border-white/10 bg-zinc-900 shadow-2xl"
+            >
+              <div className="flex h-full flex-col lg:flex-row">
+                {/* Left side: branding/info */}
+                <div className="hidden w-1/3 bg-emerald-600 p-8 lg:block relative">
+                  <div className="absolute inset-0 bg-gradient-to-br from-black/20 to-transparent" />
+                  <div className="relative z-10">
+                    <Navigation className="h-12 w-12 text-white/40" />
+                    <h3 className="mt-8 font-display text-3xl text-white">Find your town</h3>
+                    <p className="mt-4 text-sm text-emerald-100 leading-relaxed">
+                      We organize data town by town to give you the most relevant local experience.
+                    </p>
+                  </div>
                 </div>
-                {initialTownId ? (
-                  <button
-                    type="button"
-                    className="grid h-11 w-11 place-items-center rounded-2xl border border-slate-200 text-xl text-slate-500 transition hover:border-slate-300 hover:text-slate-800"
-                    onClick={() => setIsLocationModalOpen(false)}
-                    aria-label="Close location chooser"
-                  >
-                    ×
-                  </button>
-                ) : null}
-              </div>
 
-              <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-                <button
-                  type="button"
-                  onClick={handleDetectCurrentLocation}
-                  disabled={isDetecting}
-                  className="rounded-2xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white shadow-[0_20px_45px_rgba(17,17,17,0.24)] transition hover:-translate-y-0.5 hover:bg-slate-800 disabled:cursor-wait disabled:opacity-70"
-                >
-                  {isDetecting ? 'Detecting current location...' : 'Detect current location'}
-                </button>
-                <input
-                  type="search"
-                  value={locationQuery}
-                  onChange={(event) => setLocationQuery(event.target.value)}
-                  placeholder="Search town or state"
-                  className="min-w-0 flex-1 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-500 focus:bg-white"
-                />
-              </div>
+                {/* Right side: search/grid */}
+                <div className="flex-1 p-6 sm:p-10">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">Location Selector</div>
+                      <h2 className="mt-2 font-display text-3xl">Select Town</h2>
+                    </div>
+                    {initialTownId && (
+                      <button 
+                        onClick={() => setIsLocationModalOpen(false)}
+                        className="flex h-10 w-10 items-center justify-center rounded-full bg-white/5 transition-colors hover:bg-white/10"
+                      >
+                        <X className="h-5 w-5" />
+                      </button>
+                    )}
+                  </div>
 
-              {detectMessage ? <p className="mt-4 text-sm text-slate-700">{detectMessage}</p> : null}
-            </div>
+                  <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+                    <button
+                      type="button"
+                      onClick={handleDetectCurrentLocation}
+                      disabled={isDetecting}
+                      className="flex items-center justify-center gap-2 rounded-2xl bg-emerald-500 px-6 py-4 text-sm font-bold text-zinc-950 transition-all hover:bg-emerald-400 disabled:opacity-50"
+                    >
+                      {isDetecting ? 'Detecting...' : <><Navigation className="h-4 w-4" /> Near Me</>}
+                    </button>
+                    <div className="relative flex-1">
+                      <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
+                      <input
+                        type="search"
+                        value={locationQuery}
+                        onChange={(e) => setLocationQuery(e.target.value)}
+                        placeholder="Search town or state..."
+                        className="w-full rounded-2xl border border-white/10 bg-white/5 py-4 pl-12 pr-4 text-sm text-white focus:border-emerald-500 focus:bg-white/10 outline-none transition-all"
+                      />
+                    </div>
+                  </div>
 
-            <div className="max-h-[50vh] overflow-y-auto px-6 py-6 sm:px-8">
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {filteredTowns.map((town) => (
-                  <button
-                    key={town.id}
-                    type="button"
-                    onClick={() => navigateToTown(town.id)}
-                    className="rounded-[1.4rem] border border-slate-200 bg-white p-4 text-left shadow-[0_14px_30px_rgba(15,23,42,0.06)] transition hover:-translate-y-0.5 hover:border-slate-400 hover:bg-slate-50 hover:shadow-[0_18px_36px_rgba(17,17,17,0.12)]"
-                  >
-                    <div className="text-base font-semibold text-slate-900">{town.name}</div>
-                    <div className="mt-2 text-sm text-slate-500">{town.state}</div>
-                  </button>
-                ))}
-              </div>
+                  {detectMessage && (
+                    <div className="mt-4 rounded-xl bg-red-400/10 p-3 text-xs font-medium text-red-400 border border-red-400/20">
+                      {detectMessage}
+                    </div>
+                  ) }
 
-              {filteredTowns.length === 0 ? (
-                <div className="rounded-[1.4rem] border border-dashed border-slate-300 bg-slate-50 px-5 py-10 text-center text-sm text-slate-500">
-                  No towns matched your search. Try another name or detect your current location.
+                  <div className="mt-8 grid max-h-[40vh] gap-3 overflow-y-auto pr-2 grid-cols-1 sm:grid-cols-2">
+                    {filteredTowns.map((town) => (
+                      <button
+                        key={town.id}
+                        onClick={() => navigateToTown(town.id)}
+                        className="group flex flex-col items-start rounded-2xl border border-white/5 bg-white/5 p-5 text-left transition-all hover:bg-emerald-500 hover:border-emerald-400"
+                      >
+                        <div className="font-bold text-white group-hover:text-zinc-950">{town.name}</div>
+                        <div className="mt-1 text-xs text-zinc-500 group-hover:text-zinc-950/70">{town.state}</div>
+                      </button>
+                    ))}
+                    
+                    {filteredTowns.length === 0 && (
+                      <div className="col-span-full py-20 text-center">
+                        <MapPin className="mx-auto h-12 w-12 text-zinc-800" />
+                        <p className="mt-4 text-zinc-500">No towns matched your search.</p>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              ) : null}
-            </div>
+              </div>
+            </motion.div>
           </div>
-        </div>
-      ) : null}
+        )}
+      </AnimatePresence>
     </div>
   );
 }

@@ -40,6 +40,8 @@ export const DEFAULT_TOWNS: Town[] = [
   { id: 'tirupati', name: 'Tirupati', state: 'Andhra Pradesh', enabled: false, coords: { lat: 13.6288, lng: 79.4192 } },
   { id: 'kakinada', name: 'Kakinada', state: 'Andhra Pradesh', enabled: false, coords: { lat: 16.9891, lng: 82.2475 } },
   { id: 'rajahmundry', name: 'Rajahmundry', state: 'Andhra Pradesh', enabled: false, coords: { lat: 17.0005, lng: 81.8040 } },
+  { id: 'nidadavole', name: 'Nidadavole', state: 'Andhra Pradesh', enabled: false },
+  { id: 'tanuku', name: 'Tanuku', state: 'Andhra Pradesh', enabled: false },
   { id: 'nellore', name: 'Nellore', state: 'Andhra Pradesh', enabled: false, coords: { lat: 14.4426, lng: 79.9865 } },
   { id: 'kurnool', name: 'Kurnool', state: 'Andhra Pradesh', enabled: false, coords: { lat: 15.8281, lng: 78.0373 } },
 ];

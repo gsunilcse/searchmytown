@@ -91,7 +91,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
       <div className="mb-6">
         <Link
           href={selectedTown ? getTownPath(selectedTown.id) : '/'}
-          className="text-sm font-semibold text-slate-700 transition hover:text-slate-900"
+          className="text-sm font-semibold text-zinc-400 transition hover:text-white"
         >
           ← Back to dashboard
         </Link>

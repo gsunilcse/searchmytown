@@ -4,6 +4,27 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { signIn, signOut } from 'next-auth/react';
 import { useEffect, useMemo, useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { 
+  User, 
+  ShieldCheck, 
+  Mail, 
+  ChevronRight, 
+  Smartphone, 
+  Building2, 
+  CheckCircle2, 
+  AlertCircle, 
+  Lock, 
+  LogOut, 
+  ArrowLeft,
+  Settings,
+  Flame,
+  Globe,
+  LayoutDashboard,
+  Check,
+  ChevronDown
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { MODULE_DEFINITIONS } from '@/config/modules';
 import type { Town } from '@/config/towns';
 import type { AppViewer, LoginRole } from '@/lib/auth';
@@ -87,6 +108,90 @@ function getSignInTarget(intent: LoginIntent, callbackUrl: string) {
   return intent === 'publisher' ? '/login' : '/admin';
 }
 
+function PremiumSelect({ 
+  value, 
+  onChange, 
+  options, 
+  icon: Icon, 
+  label,
+  disabled = false
+}: { 
+  value: string; 
+  onChange: (val: string) => void; 
+  options: { value: string; label: string; disabled?: boolean }[]; 
+  icon: any; 
+  label: string;
+  disabled?: boolean;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const selectedOption = options.find(o => o.value === value) || options[0];
+
+  return (
+    <div className="relative space-y-2">
+      <label className="text-xs font-bold uppercase tracking-widest text-zinc-400 ml-1">{label}</label>
+      <div className="relative">
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={() => setIsOpen(!isOpen)}
+          className={cn(
+            "w-full flex items-center gap-3 rounded-[1.25rem] border border-white/5 bg-zinc-950/50 py-4 pl-12 pr-4 text-sm text-white text-left transition-all",
+            isOpen ? "border-emerald-500 ring-2 ring-emerald-500/10" : "hover:border-white/10",
+            disabled && "opacity-50 cursor-not-allowed"
+          )}
+        >
+          <Icon className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-500" />
+          <span className={cn("flex-1 truncate", !selectedOption && "text-zinc-500")}>
+            {selectedOption?.label || "Select..."}
+          </span>
+          <ChevronDown className={cn("h-4 w-4 text-zinc-500 transition-transform", isOpen && "rotate-180")} />
+        </button>
+
+        <AnimatePresence>
+          {isOpen && !disabled && (
+            <>
+              <div 
+                className="fixed inset-0 z-40" 
+                onClick={() => setIsOpen(false)} 
+              />
+              <motion.div
+                initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                className="absolute left-0 right-0 top-full z-50 mt-2 overflow-hidden rounded-2xl border border-white/10 bg-zinc-900 shadow-2xl backdrop-blur-xl"
+              >
+                <div className="max-h-60 overflow-y-auto p-2">
+                  {options.map((opt) => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      disabled={opt.disabled}
+                      onClick={() => {
+                        onChange(opt.value);
+                        setIsOpen(false);
+                      }}
+                      className={cn(
+                        "flex w-full items-center justify-between rounded-xl px-4 py-3 text-sm transition-all",
+                        value === opt.value 
+                          ? "bg-emerald-500 text-zinc-950 font-bold" 
+                          : "text-zinc-300 hover:bg-white/5 hover:text-white",
+                        opt.disabled && "opacity-50 cursor-not-allowed"
+                      )}
+                    >
+                      {opt.label}
+                      {value === opt.value && <Check className="h-4 w-4" />}
+                    </button>
+                  ))}
+                </div>
+              </motion.div>
+            </>
+          )}
+        </AnimatePresence>
+      </div>
+    </div>
+  );
+}
+
 export default function LoginHub({
   authConfigured,
   viewer,
@@ -109,7 +214,7 @@ export default function LoginHub({
   const [accessRequests, setAccessRequests] = useState(ownAccessRequests);
   const [loginFormState, setLoginFormState] = useState<LoginFormState>({
     email: viewer.email ?? '',
-    requestedRole: intent === 'townadmin' || intent === 'superadmin' ? intent : 'publisher',
+    requestedRole: intent === 'townadmin' || intent === 'superadmin' ? (intent as LoginIntent) : 'publisher',
     townId: currentTownId ?? towns[0]?.id ?? '',
   });
   const [formState, setFormState] = useState<SignupFormState>({
@@ -139,6 +244,7 @@ export default function LoginHub({
     () => towns.find((town) => town.id === currentTownId) ?? null,
     [currentTownId, towns]
   );
+
   const pendingTownIds = useMemo(
     () =>
       new Set(
@@ -148,6 +254,7 @@ export default function LoginHub({
       ),
     [accessRequests]
   );
+
   const hasPendingTownAdminLoginRequest = useMemo(
     () =>
       loginFormState.requestedRole === 'townadmin' &&
@@ -160,10 +267,11 @@ export default function LoginHub({
       ),
     [accessRequests, loginFormState.email, loginFormState.requestedRole, loginFormState.townId]
   );
+
   const loginDisabledReason = hasPendingTownAdminLoginRequest
     ? 'Townadmin access is still pending superadmin review for this email and town.'
     : null;
-  const canShowSuperAdminOption = normalizeEmail(loginFormState.email) === configuredSuperAdminEmail;
+  const canShowSuperAdminOption = normalizeEmail(loginFormState.email) === (configuredSuperAdminEmail ? normalizeEmail(configuredSuperAdminEmail) : null);
 
   useEffect(() => {
     if (!canShowSuperAdminOption && loginFormState.requestedRole === 'superadmin') {
@@ -273,294 +381,440 @@ export default function LoginHub({
 
   if (!authConfigured) {
     return (
-      <div className="rounded-[2rem] border border-slate-300 bg-slate-100 p-8 text-slate-950 shadow-[0_24px_64px_rgba(15,23,42,0.08)]">
-        <h1 className="font-display text-3xl">Login / Signup is not configured</h1>
-        <p className="mt-4 max-w-2xl text-sm leading-7">
-          Set GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, and NEXTAUTH_SECRET to enable approved publisher, townadmin, and superadmin access.
+      <div className="premium-card bg-red-500/5 border-red-500/20 p-12 text-center">
+        <AlertCircle className="mx-auto h-12 w-12 text-red-500" />
+        <h1 className="mt-6 font-display text-4xl text-white">Security Not Configured</h1>
+        <p className="mt-4 max-w-2xl mx-auto text-zinc-400 leading-relaxed">
+          The authentication system is currently offline. Please set GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, and NEXTAUTH_SECRET to enable access.
         </p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-8">
-      <section className="rounded-[2rem] border border-slate-200 bg-white/92 p-6 shadow-[0_24px_64px_rgba(15,23,42,0.1)] sm:p-8">
-        <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Login / Signup</p>
-            <h1 className="mt-3 font-display text-4xl text-slate-950 sm:text-5xl">Pre-approved role access</h1>
-            <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-600 sm:text-base">
-              Sign up with name, email, mobile number, and role. Publisher signup is approved immediately, townadmin signup is reviewed by the superadmin, and the single superadmin account is seeded manually in the database.
+    <div className="space-y-12">
+      <section className="premium-card relative overflow-hidden p-8 sm:p-12">
+        <div className="absolute top-0 right-0 h-96 w-96 bg-emerald-500/5 blur-[100px] pointer-events-none" />
+        
+        <div className="flex flex-col gap-8 lg:flex-row lg:items-start lg:justify-between">
+          <div className="flex-1">
+            <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-4 py-1.5 text-xs font-bold uppercase tracking-widest text-emerald-400">
+              <ShieldCheck className="h-4 w-4" />
+              Secure Gateway
+            </div>
+            <h1 className="mt-6 font-display text-5xl text-white">Access Portal</h1>
+            <p className="mt-6 max-w-2xl text-lg text-zinc-400 leading-relaxed">
+              Verify your pre-approved role or request new credentials to start participating in the {currentTown?.name ?? 'SearchMyTown'} ecosystem.
             </p>
           </div>
-          {viewer.isAuthenticated ? (
-            <div className="flex flex-wrap items-center gap-3">
-              {viewer.email ? <div className="rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-700">{viewer.email}</div> : null}
+          {viewer.isAuthenticated && (
+            <div className="flex flex-wrap items-center gap-4 bg-white/5 p-4 rounded-2xl border border-white/5 backdrop-blur-md">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-full bg-emerald-500/20 flex items-center justify-center border border-emerald-500/20">
+                  <User className="h-5 w-5 text-emerald-500" />
+                </div>
+                <div className="text-sm">
+                  <div className="text-zinc-500 uppercase text-[10px] font-bold tracking-widest">Active Session</div>
+                  <div className="font-medium text-white truncate max-w-[150px]">{viewer.email}</div>
+                </div>
+              </div>
               <button
                 type="button"
                 onClick={() => void handleSignOut()}
-                suppressHydrationWarning
-                className="rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-300"
+                className="rounded-xl bg-white/5 hover:bg-red-500/10 px-4 py-2.5 text-xs font-bold text-zinc-300 hover:text-red-400 transition-all border border-white/5"
               >
-                Log out
+                Sign Out
               </button>
             </div>
-          ) : null}
+          )}
         </div>
 
-        <div className="mt-8 inline-flex rounded-full border border-slate-200 bg-slate-50 p-1">
+        <div className="mt-12 flex items-center gap-1 bg-white/5 p-1 rounded-full border border-white/5 w-fit">
           {(['login', 'signup'] as const).map((tab) => (
             <button
               key={tab}
               type="button"
-              onClick={() => setMode(tab)}
-              suppressHydrationWarning
-              className={`rounded-full px-5 py-2 text-sm font-semibold transition ${mode === tab ? 'bg-slate-950 text-white' : 'text-slate-700 hover:bg-white'}`}
+              onClick={() => {
+                setMode(tab);
+                setSignupMessage(null);
+                setSignupError(null);
+                setLoginError(null);
+              }}
+              className={cn(
+                "px-8 py-3 rounded-full text-sm font-bold transition-all duration-300",
+                mode === tab 
+                  ? "bg-white text-zinc-950 shadow-lg" 
+                  : "text-zinc-400 hover:text-white"
+              )}
             >
               {tab === 'login' ? 'Login' : 'Signup'}
             </button>
           ))}
         </div>
 
-        {errorMessage ? <p className="mt-6 text-sm font-medium text-slate-700">{errorMessage}</p> : null}
-
-        {mode === 'login' ? (
-          <div className="mt-8 grid gap-8 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
-            <form onSubmit={handleLoginSubmit} className="rounded-[1.8rem] border border-slate-200 bg-slate-50/90 p-6 shadow-[0_14px_30px_rgba(15,23,42,0.05)]">
-              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Login verification</p>
-              <h2 className="mt-3 text-3xl font-semibold text-slate-950">Verify your role before Google login</h2>
-
-              <div className="mt-6 grid gap-4">
-                <label className="space-y-2">
-                  <span className="text-sm font-semibold text-slate-800">Approved email</span>
-                  <input required type="email" value={loginFormState.email} onChange={(event) => updateLoginField('email', event.target.value)} suppressHydrationWarning className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-500" placeholder="Email approved for this role" />
-                </label>
-
-                <label className="space-y-2">
-                  <span className="text-sm font-semibold text-slate-800">Role</span>
-                  <select value={loginFormState.requestedRole} onChange={(event) => handleLoginRoleChange(event.target.value)} suppressHydrationWarning className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-500">
-                    <option value="publisher">Publisher</option>
-                    <option value="townadmin">Townadmin</option>
-                    {canShowSuperAdminOption ? <option value="superadmin">Superadmin</option> : null}
-                  </select>
-                </label>
-
-                {loginFormState.requestedRole === 'publisher' || loginFormState.requestedRole === 'townadmin' ? (
-                  <label className="space-y-2">
-                    <span className="text-sm font-semibold text-slate-800">Town</span>
-                    <select value={loginFormState.townId} onChange={(event) => updateLoginField('townId', event.target.value)} disabled={Boolean(currentTownId)} suppressHydrationWarning className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition disabled:cursor-not-allowed disabled:bg-slate-100 focus:border-slate-500">
-                      {currentTown ? (
-                        <option value={currentTown.id}>{currentTown.name}</option>
-                      ) : (
-                        towns.map((town) => (
-                          <option key={town.id} value={town.id}>
-                            {town.name}
-                          </option>
-                        ))
-                      )}
-                    </select>
-                  </label>
-                ) : null}
-
-                <div className="rounded-[1.4rem] border border-slate-200 bg-white px-4 py-4 text-sm leading-7 text-slate-700">
-                  Your email must already be approved for the selected role before Google sign-in starts. Superadmin login works only for the single manually seeded superadmin account.
-                </div>
-
-                {errorMessage ? <p className="text-sm font-medium text-slate-700">{errorMessage}</p> : null}
-                {loginDisabledReason ? <p className="text-sm font-medium text-slate-700">{loginDisabledReason}</p> : null}
-                {loginError ? <p className="text-sm font-medium text-slate-700">{loginError}</p> : null}
-
-                <button type="submit" disabled={isSubmittingIntent !== null || hasPendingTownAdminLoginRequest} suppressHydrationWarning className="rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-70">
-                  {isSubmittingIntent ? 'Checking access...' : 'Verify and continue with Google'}
-                </button>
-              </div>
-            </form>
-
-            <div className="space-y-6">
-              <div className="rounded-[1.8rem] border border-slate-200 bg-slate-50/90 p-6 shadow-[0_14px_30px_rgba(15,23,42,0.05)]">
-                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Role rules</p>
-                <div className="mt-4 space-y-4 text-sm leading-7 text-slate-700">
-                  <p>Publisher: only approved publisher emails can open publish menus for their assigned town.</p>
-                  <p>Townadmin: only superadmin-approved townadmin emails can moderate their assigned enabled town.</p>
-                  <p>Superadmin: only one manually seeded superadmin email can access full control.</p>
-                </div>
-              </div>
-
-              {viewer.isAuthenticated ? (
-                <div className="rounded-[1.8rem] border border-slate-200 bg-slate-50/90 p-6 shadow-[0_14px_30px_rgba(15,23,42,0.05)]">
-                  <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Current access</p>
-                  <div className="mt-4 space-y-3 text-sm leading-7 text-slate-700">
-                    <p>Publisher: {isPublisher ? 'Approved' : 'Not approved'}</p>
-                    <p>Townadmin: {isTownAdmin ? 'Approved' : 'Not approved'}</p>
-                    <p>Superadmin: {isSuperAdmin ? 'Approved' : 'Not approved'}</p>
-                    {hasAdminAccess ? <Link href="/admin" className="inline-flex rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800">Open moderation workspace</Link> : null}
-                  </div>
-                </div>
-              ) : null}
-            </div>
-          </div>
-        ) : (
-          <div className="mt-8 grid gap-8 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
-            <form onSubmit={handleSignupSubmit} className="rounded-[1.8rem] border border-slate-200 bg-slate-50/90 p-6 shadow-[0_14px_30px_rgba(15,23,42,0.05)]">
-              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Signup form</p>
-              <h2 className="mt-3 text-3xl font-semibold text-slate-950">Create your access request</h2>
-
-              <div className="mt-6 grid gap-4">
-                <label className="space-y-2">
-                  <span className="text-sm font-semibold text-slate-800">Name</span>
-                  <input required value={formState.name} onChange={(event) => updateField('name', event.target.value)} suppressHydrationWarning className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-500" placeholder="Full name" />
-                </label>
-
-                <label className="space-y-2">
-                  <span className="text-sm font-semibold text-slate-800">Email</span>
-                  <input required type="email" value={formState.email} onChange={(event) => updateField('email', event.target.value)} suppressHydrationWarning className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-500" placeholder="Email used for Google login" />
-                </label>
-
-                <label className="space-y-2">
-                  <span className="text-sm font-semibold text-slate-800">Mobile number</span>
-                  <input required value={formState.mobile} onChange={(event) => updateField('mobile', event.target.value)} suppressHydrationWarning className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-500" placeholder="Mobile number" />
-                </label>
-
-                <label className="space-y-2">
-                  <span className="text-sm font-semibold text-slate-800">Role</span>
-                  <select value={formState.requestedRole} onChange={(event) => handleRoleChange(event.target.value)} suppressHydrationWarning className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-500">
-                    <option value="publisher">Publisher</option>
-                    <option value="townadmin">Townadmin</option>
-                  </select>
-                </label>
-
-                {formState.requestedRole === 'publisher' ? (
-                  <label className="space-y-2">
-                    <span className="text-sm font-semibold text-slate-800">Publisher town</span>
-                    <select
-                      value={formState.townId}
-                      onChange={(event) => updateField('townId', event.target.value)}
-                      disabled={Boolean(currentTownId)}
-                      suppressHydrationWarning
-                      className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition disabled:cursor-not-allowed disabled:bg-slate-100 focus:border-slate-500"
-                    >
-                      {currentTown ? (
-                        <option value={currentTown.id}>{currentTown.name}</option>
-                      ) : (
-                        towns.map((town) => (
-                          <option key={town.id} value={town.id}>
-                            {town.name}
-                          </option>
-                        ))
-                      )}
-                    </select>
-                  </label>
-                ) : null}
-
-                {formState.requestedRole === 'townadmin' ? (
-                  <label className="space-y-2">
-                    <span className="text-sm font-semibold text-slate-800">Enabled town</span>
-                    <select value={formState.townId} onChange={(event) => updateField('townId', event.target.value)} suppressHydrationWarning className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-500">
-                      {towns.map((town) => (
-                        <option key={town.id} value={town.id} disabled={approvedTownIds.has(town.id) || pendingTownIds.has(town.id)}>
-                          {town.name} {approvedTownIds.has(town.id) ? '(already approved)' : pendingTownIds.has(town.id) ? '(pending)' : ''}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                ) : null}
-
-                <div className="rounded-[1.4rem] border border-slate-200 bg-white px-4 py-4 text-sm leading-7 text-slate-700">Publisher signup is approved immediately. Townadmin signup stays pending until reviewed by the superadmin. Use the same approved email later when logging in with Google.</div>
-
-                {signupError ? <p className="text-sm font-medium text-slate-700">{signupError}</p> : null}
-                {signupMessage ? <p className="text-sm font-medium text-slate-700">{signupMessage}</p> : null}
-
-                <button type="submit" disabled={isSubmittingSignup} suppressHydrationWarning className="rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-wait disabled:opacity-70">
-                  {isSubmittingSignup ? 'Submitting...' : 'Submit signup'}
-                </button>
-              </div>
-            </form>
-
-            <div className="space-y-6">
-              <div className="rounded-[1.8rem] border border-slate-200 bg-slate-50/90 p-6 shadow-[0_14px_30px_rgba(15,23,42,0.05)]">
-                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Role rules</p>
-                <div className="mt-4 space-y-4 text-sm leading-7 text-slate-700">
-                  <p>Publisher: can see publish menus and submit listings.</p>
-                  <p>Townadmin: can review publish requests only for the selected enabled town after superadmin approval.</p>
-                  <p>Superadmin: is a single manually seeded account that can enable towns and review townadmin requests.</p>
-                </div>
-              </div>
-
-              {viewer.isAuthenticated ? (
-                <div className="rounded-[1.8rem] border border-slate-200 bg-slate-50/90 p-6 shadow-[0_14px_30px_rgba(15,23,42,0.05)]">
-                  <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Current access</p>
-                  <div className="mt-4 space-y-3 text-sm leading-7 text-slate-700">
-                    <p>Publisher: {isPublisher ? 'Approved' : 'Not approved'}</p>
-                    <p>Townadmin: {isTownAdmin ? 'Approved' : 'Not approved'}</p>
-                    <p>Superadmin: {isSuperAdmin ? 'Approved' : 'Only available through manual seed'}</p>
-                  </div>
-                </div>
-              ) : null}
-            </div>
+        {errorMessage && (
+          <div className="mt-8 p-4 rounded-2xl bg-red-400/10 border border-red-400/20 text-red-400 text-sm flex items-center gap-3">
+            <AlertCircle className="h-5 w-5 shrink-0" />
+            {errorMessage}
           </div>
         )}
+
+        <AnimatePresence mode="wait">
+          {mode === 'login' ? (
+            <motion.div
+              key="login"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 20 }}
+              className="mt-12 grid gap-12 lg:grid-cols-2"
+            >
+              <form onSubmit={handleLoginSubmit} className="space-y-6">
+                <div className="space-y-6 bg-white/5 p-8 rounded-[2rem] border border-white/5">
+                  <div className="flex items-center gap-3 text-emerald-500">
+                    <Lock className="h-5 w-5" />
+                    <h2 className="text-xl font-bold">Identity Verification</h2>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold uppercase tracking-widest text-zinc-500 ml-1">Email Address</label>
+                      <div className="relative">
+                        <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-500" />
+                        <input 
+                          required 
+                          type="email" 
+                          value={loginFormState.email} 
+                          onChange={(e) => updateLoginField('email', e.target.value)} 
+                          className="w-full rounded-[1.25rem] border border-white/5 bg-zinc-950/50 py-4 pl-12 pr-4 text-sm text-white focus:border-emerald-500 outline-none transition-all" 
+                          placeholder="Your verified Google email" 
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid sm:grid-cols-2 gap-4">
+                      <PremiumSelect
+                        label="Intended Role"
+                        icon={ShieldCheck}
+                        value={loginFormState.requestedRole}
+                        onChange={(val) => handleLoginRoleChange(val)}
+                        options={[
+                          { value: 'publisher', label: 'Publisher' },
+                          { value: 'townadmin', label: 'Townadmin' },
+                          ...(canShowSuperAdminOption ? [{ value: 'superadmin', label: 'Superadmin' }] : [])
+                        ]}
+                      />
+
+                      {(loginFormState.requestedRole === 'publisher' || loginFormState.requestedRole === 'townadmin') && (
+                        <PremiumSelect
+                          label="Town Scope"
+                          icon={Building2}
+                          value={loginFormState.townId}
+                          onChange={(val) => updateLoginField('townId', val)}
+                          disabled={Boolean(currentTownId)}
+                          options={currentTown ? [
+                            { value: currentTown.id, label: currentTown.name }
+                          ] : towns.map(t => ({ value: t.id, label: t.name }))}
+                        />
+                      )}
+                    </div>
+                  </div>
+
+                  {(loginError || loginDisabledReason) && (
+                    <div className="p-4 rounded-xl bg-red-400/10 border border-red-400/20 text-red-400 text-xs leading-relaxed">
+                      {loginError || loginDisabledReason}
+                    </div>
+                  )}
+
+                  <button 
+                    type="submit" 
+                    disabled={isSubmittingIntent !== null || !!loginDisabledReason} 
+                    className="w-full flex items-center justify-center gap-3 rounded-2xl bg-white px-8 py-4 text-sm font-bold text-zinc-950 transition-all hover:bg-zinc-200 disabled:opacity-50 mt-4 group"
+                  >
+                    {isSubmittingIntent ? (
+                      <span className="flex items-center gap-2">Checking Credentials...</span>
+                    ) : (
+                      <>Verify & Continue <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-1" /></>
+                    )}
+                  </button>
+                </div>
+              </form>
+
+              <div className="space-y-8">
+                <div className="bg-white/5 p-8 rounded-[2rem] border border-white/5">
+                  <h3 className="text-zinc-500 uppercase text-xs font-bold tracking-widest flex items-center gap-2">
+                    <AlertCircle className="h-4 w-4" /> Role Compliance
+                  </h3>
+                  <div className="mt-6 space-y-6">
+                    <div className="flex gap-4">
+                      <div className="h-10 w-10 flex-shrink-0 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
+                        <User className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <div className="text-sm font-bold text-white">Publisher</div>
+                        <div className="mt-1 text-xs text-zinc-500 leading-relaxed">Immediate access for approved emails to submit local content.</div>
+                      </div>
+                    </div>
+                    <div className="flex gap-4">
+                      <div className="h-10 w-10 flex-shrink-0 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+                        <ShieldCheck className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <div className="text-sm font-bold text-white">Townadmin</div>
+                        <div className="mt-1 text-xs text-zinc-500 leading-relaxed">Assigned per town. Requires superadmin verification for moderation.</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {viewer.isAuthenticated && (
+                  <div className="bg-emerald-500/5 p-8 rounded-[2rem] border border-emerald-500/10">
+                    <h3 className="text-emerald-500 text-xs font-bold uppercase tracking-widest">Your Privileges</h3>
+                    <div className="mt-6 grid grid-cols-3 gap-3">
+                      {[
+                        { label: 'Pub', active: isPublisher },
+                        { label: 'Admin', active: isTownAdmin },
+                        { label: 'Super', active: isSuperAdmin }
+                      ].map(item => (
+                        <div key={item.label} className={cn("text-center p-3 rounded-xl border transition-all", item.active ? "bg-emerald-500/20 border-emerald-500/20 text-emerald-400" : "bg-white/5 border-white/5 text-zinc-500")}>
+                          <div className="text-[10px] font-bold uppercase">{item.label}</div>
+                          <div className="mt-1 text-[10px]">{item.active ? 'Yes' : 'No'}</div>
+                        </div>
+                      ))}
+                    </div>
+                    {hasAdminAccess && (
+                      <Link href="/admin" className="mt-6 w-full flex items-center justify-center gap-2 rounded-xl bg-emerald-500 py-3 text-xs font-bold text-zinc-950 hover:bg-emerald-400">
+                        <LayoutDashboard className="h-4 w-4" /> Go to Console
+                      </Link>
+                    )}
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          ) : (
+            <motion.div
+              key="signup"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              className="mt-12 grid gap-12 lg:grid-cols-[1.2fr_0.8fr]"
+            >
+              <form onSubmit={handleSignupSubmit} className="bg-white/5 p-8 rounded-[2rem] border border-white/5 space-y-8">
+                <div className="flex items-center gap-3 text-emerald-500">
+                  <Flame className="h-5 w-5" />
+                  <h2 className="text-xl font-bold">Request Access</h2>
+                </div>
+
+                <div className="grid sm:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold uppercase tracking-widest text-zinc-500 ml-1">Full Name</label>
+                    <div className="relative">
+                      <User className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-500" />
+                      <input required value={formState.name} onChange={(e) => updateField('name', e.target.value)} className="w-full rounded-[1.25rem] border border-white/5 bg-zinc-950/50 py-4 pl-12 pr-4 text-sm text-white focus:border-emerald-500 outline-none" placeholder="John Doe" />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold uppercase tracking-widest text-zinc-500 ml-1">Email Address</label>
+                    <div className="relative">
+                      <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-600" />
+                      <input required type="email" value={formState.email} onChange={(e) => updateField('email', e.target.value)} className="w-full rounded-[1.25rem] border border-white/5 bg-zinc-950/50 py-4 pl-12 pr-4 text-sm text-white focus:border-emerald-500 outline-none" placeholder="google-account@gmail.com" />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold uppercase tracking-widest text-zinc-500 ml-1">Mobile Contact</label>
+                    <div className="relative">
+                      <Smartphone className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-500" />
+                      <input required value={formState.mobile} onChange={(e) => updateField('mobile', e.target.value)} className="w-full rounded-[1.25rem] border border-white/5 bg-zinc-950/50 py-4 pl-12 pr-4 text-sm text-white focus:border-emerald-500 outline-none" placeholder="+1 234 567 890" />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-6">
+                  <PremiumSelect
+                    label="Requested Role"
+                    icon={ShieldCheck}
+                    value={formState.requestedRole}
+                    onChange={handleRoleChange}
+                    options={[
+                      { value: 'publisher', label: 'Publisher' },
+                      { value: 'townadmin', label: 'Townadmin' }
+                    ]}
+                  />
+
+                  <PremiumSelect
+                    label="Target Location"
+                    icon={Globe}
+                    value={formState.townId}
+                    onChange={(val) => updateField('townId', val)}
+                    disabled={Boolean(currentTownId)}
+                    options={currentTown ? [
+                      { value: currentTown.id, label: currentTown.name }
+                    ] : towns.map(town => {
+                      const isApproved = approvedTownIds.has(town.id);
+                      const isPending = pendingTownIds.has(town.id);
+                      return {
+                        value: town.id,
+                        label: `${town.name} ${formState.requestedRole === 'townadmin' && (isApproved ? '(Admin Assigned)' : isPending ? '(Pending)' : '')}`,
+                        disabled: formState.requestedRole === 'townadmin' && (isApproved || isPending)
+                      };
+                    })}
+                  />
+                </div>
+
+                {(signupError || signupMessage) && (
+                  <div className={cn("p-4 rounded-xl border text-sm", signupError ? "bg-red-400/10 border-red-400/20 text-red-400" : "bg-emerald-400/10 border-emerald-400/20 text-emerald-400")}>
+                    {signupError || signupMessage}
+                  </div>
+                )}
+
+                <button 
+                  type="submit" 
+                  disabled={isSubmittingSignup} 
+                  className="w-full flex items-center justify-center gap-3 rounded-2xl bg-emerald-500 px-8 py-4 text-sm font-bold text-zinc-950 transition-all hover:bg-emerald-400 disabled:opacity-50"
+                >
+                  {isSubmittingSignup ? 'Processing Request...' : 'Submit Credentials'}
+                </button>
+              </form>
+
+              <div className="space-y-8">
+                <div className="bg-white/5 p-8 rounded-[2rem] border border-white/5">
+                  <h3 className="text-emerald-500 text-xs font-bold uppercase tracking-widest">Wait times</h3>
+                  <div className="mt-8 space-y-8">
+                    <div className="relative pl-8 border-l border-white/10">
+                      <div className="absolute -left-1.5 top-0 h-3 w-3 rounded-full bg-emerald-500" />
+                      <div className="text-white text-sm font-bold">Automatic Approval</div>
+                      <div className="mt-1 text-xs text-zinc-500">Publishers are whitelisted instantly.</div>
+                    </div>
+                    <div className="relative pl-8 border-l border-white/10">
+                      <div className="absolute -left-1.5 top-0 h-3 w-3 rounded-full bg-amber-500" />
+                      <div className="text-white text-sm font-bold">Manual Review</div>
+                      <div className="mt-1 text-xs text-zinc-500">Townadmin requests take 2-3 business days.</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </section>
 
-      {viewer.isAuthenticated ? (
-        <>
-          <section className="rounded-[2rem] border border-slate-200 bg-white/92 p-6 shadow-[0_24px_64px_rgba(15,23,42,0.1)] sm:p-8">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+      {viewer.isAuthenticated && (
+        <div className="grid gap-8 lg:grid-cols-2">
+          {/* Submissions Section */}
+          <section className="premium-card p-8">
+            <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Publisher dashboard</p>
-                <h2 className="mt-3 font-display text-3xl text-slate-950">Track your publish requests</h2>
+                <h2 className="font-display text-2xl text-white">Your Submissions</h2>
+                <div className="mt-2 text-xs font-bold uppercase tracking-widest text-emerald-500">{ownSubmissions.length} Items Found</div>
               </div>
-              <p className="max-w-2xl text-sm leading-7 text-slate-600">Approved publisher accounts can publish. Their submissions are reviewed by the townadmin assigned to that town.</p>
+              <LayoutDashboard className="h-6 w-6 text-zinc-700" />
             </div>
 
-            <div className="mt-8 space-y-4">
+            <div className="mt-8 space-y-4 max-h-[600px] overflow-y-auto pr-2">
               {ownSubmissions.map((submission) => (
-                <article key={submission.id} className="rounded-[1.6rem] border border-slate-200 bg-slate-50/80 p-5 shadow-[0_14px_30px_rgba(15,23,42,0.05)]">
-                  <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                    <div>
-                      <div className="flex flex-wrap items-center gap-3 text-sm">
-                        <span className="rounded-full bg-slate-950 px-3 py-1 font-semibold text-white">{MODULE_DEFINITIONS[submission.moduleKey].label}</span>
-                        <span className="rounded-full bg-white px-3 py-1 font-semibold text-slate-700">{submission.townName}</span>
-                        <span className={`rounded-full px-3 py-1 font-semibold ${submission.status === 'approved' ? 'bg-slate-200 text-slate-800' : submission.status === 'rejected' ? 'bg-slate-300 text-slate-900' : 'bg-slate-100 text-slate-700'}`}>{submission.status}</span>
-                      </div>
-                      <h3 className="mt-4 text-2xl font-semibold text-slate-950">{submission.title}</h3>
-                      <p className="mt-3 text-sm leading-7 text-slate-600">{submission.summary}</p>
-                      {submission.moderationNote ? <p className="mt-3 text-sm leading-7 text-slate-500">{submission.moderationNote}</p> : null}
+                <motion.article 
+                  key={submission.id} 
+                  whileHover={{ y: -4 }}
+                  className="bg-white/5 p-6 rounded-2xl border border-white/5 group transition-all"
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex flex-wrap gap-2">
+                      <span className="px-2 py-1 rounded-md bg-white/10 text-[10px] font-bold text-zinc-300 uppercase tracking-tighter">
+                        {MODULE_DEFINITIONS[submission.moduleKey].label}
+                      </span>
+                      <span className={cn(
+                        "px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-tighter",
+                        submission.status === 'approved' ? "bg-emerald-500/10 text-emerald-400" : 
+                        submission.status === 'rejected' ? "bg-red-500/10 text-red-400" : "bg-blue-500/10 text-blue-400"
+                      )}>
+                        {submission.status}
+                      </span>
                     </div>
-                    <div className="rounded-[1.3rem] border border-slate-200 bg-white px-4 py-3 text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Submitted {new Date(submission.submittedAt).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'UTC' })} UTC</div>
+                    <div className="text-[10px] text-zinc-600 font-bold">
+                      {new Date(submission.submittedAt).toLocaleDateString()}
+                    </div>
                   </div>
-                </article>
+                  <h3 className="mt-4 font-bold text-zinc-100 group-hover:text-white">{submission.title}</h3>
+                  <p className="mt-2 text-xs text-zinc-500 line-clamp-2 leading-relaxed">{submission.summary}</p>
+                  {submission.moderationNote && (
+                    <div className="mt-4 p-3 rounded-xl bg-orange-500/5 border border-orange-500/10 text-[11px] text-orange-300/80 italic">
+                      " {submission.moderationNote} "
+                    </div>
+                  )}
+                </motion.article>
               ))}
 
-              {ownSubmissions.length === 0 ? <div className="rounded-[1.6rem] border border-dashed border-slate-300 bg-slate-50 px-5 py-12 text-center text-sm text-slate-500">No publish requests have been submitted from this account yet.</div> : null}
+              {ownSubmissions.length === 0 && (
+                <div className="py-20 text-center border-2 border-dashed border-white/5 rounded-[2rem]">
+                  <p className="text-sm text-zinc-600">No submission records found.</p>
+                </div>
+              )}
             </div>
           </section>
 
-          <section className="rounded-[2rem] border border-slate-200 bg-white/92 p-6 shadow-[0_24px_64px_rgba(15,23,42,0.1)] sm:p-8">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          {/* Requests History */}
+          <section className="premium-card p-8">
+            <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Signup history</p>
-                <h2 className="mt-3 font-display text-3xl text-slate-950">Your signup requests</h2>
+                <h2 className="font-display text-2xl text-white">Access History</h2>
+                <div className="mt-2 text-xs font-bold uppercase tracking-widest text-blue-500">{accessRequests.length} Requests</div>
               </div>
-              <p className="max-w-2xl text-sm leading-7 text-slate-600">Townadmin signup stays pending until the superadmin reviews the request.</p>
+              <HistoryIcon className="h-6 w-6 text-zinc-700" />
             </div>
 
             <div className="mt-8 space-y-4">
               {accessRequests.map((request) => (
-                <article key={request.id} className="rounded-[1.6rem] border border-slate-200 bg-slate-50/80 p-5 shadow-[0_14px_30px_rgba(15,23,42,0.05)]">
-                  <div className="flex flex-wrap items-center gap-3 text-sm">
-                    <span className="rounded-full bg-slate-950 px-3 py-1 font-semibold text-white">{request.requestedRole}</span>
-                    {request.townName ? <span className="rounded-full bg-white px-3 py-1 font-semibold text-slate-700">{request.townName}</span> : null}
-                    <span className={`rounded-full px-3 py-1 font-semibold ${request.status === 'approved' ? 'bg-slate-200 text-slate-800' : request.status === 'rejected' ? 'bg-slate-300 text-slate-900' : 'bg-slate-100 text-slate-700'}`}>{request.status}</span>
+                <motion.article 
+                  key={request.id} 
+                  className="flex items-center justify-between p-6 bg-white/5 rounded-2xl border border-white/5"
+                >
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-white uppercase">{request.requestedRole}</span>
+                      <ChevronRight className="h-3 w-3 text-zinc-700" />
+                      <span className="text-xs text-zinc-400">{request.townName || 'Global'}</span>
+                    </div>
+                    {request.reviewNote && <p className="mt-2 text-xs text-zinc-500 italic">"{request.reviewNote}"</p>}
                   </div>
-                  {request.reviewNote ? <p className="mt-3 text-sm leading-7 text-slate-600">{request.reviewNote}</p> : null}
-                </article>
+                  <div className={cn(
+                    "px-3 py-1 rounded-full text-[10px] font-bold uppercase",
+                    request.status === 'approved' ? "bg-emerald-500/20 text-emerald-400" : 
+                    request.status === 'rejected' ? "bg-red-500/20 text-red-400" : "bg-zinc-800 text-zinc-500"
+                  )}>
+                    {request.status}
+                  </div>
+                </motion.article>
               ))}
 
-              {accessRequests.length === 0 ? <div className="rounded-[1.6rem] border border-dashed border-slate-300 bg-slate-50 px-5 py-12 text-center text-sm text-slate-500">No signup requests have been submitted from this account yet.</div> : null}
+              {accessRequests.length === 0 && (
+                <div className="py-20 text-center border-2 border-dashed border-white/5 rounded-[2rem]">
+                  <p className="text-sm text-zinc-600">No requests in history.</p>
+                </div>
+              )}
             </div>
           </section>
-        </>
-      ) : null}
+        </div>
+      )}
     </div>
+  );
+}
+
+function HistoryIcon(props: any) {
+  return (
+    <svg
+      {...props}
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+      <path d="M3 3v5h5" />
+      <path d="m12 7 0 5 3 3" />
+    </svg>
   );
 }
