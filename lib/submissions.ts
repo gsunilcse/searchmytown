@@ -8,7 +8,7 @@ import {
   type QueryDocumentSnapshot,
 } from 'firebase-admin/firestore';
 import path from 'path';
-import { getModuleDefinition, MODULE_KEYS, type DirectoryModuleKey } from '@/config/modules';
+import { getModuleDefinition, isHelperCategory, MODULE_KEYS, type DirectoryModuleKey, type HelperCategory } from '@/config/modules';
 import { getTownById } from '@/config/towns';
 import { getFirestoreAdmin, isFirestoreConfigured } from '@/lib/firestore-admin';
 import { isTownEnabled } from '@/lib/town-settings';
@@ -30,6 +30,7 @@ export type ListingRecord = {
   email: string;
   address: string;
   website: string;
+  helperCategory?: HelperCategory;
   submittedByEmail: string;
   submittedByName: string;
   submittedAt: string;
@@ -49,6 +50,7 @@ export type ListingInput = {
   email: string;
   address: string;
   website: string;
+  helperCategory?: string;
   submittedByEmail: string;
   submittedByName: string;
 };
@@ -100,6 +102,7 @@ function normalizeRecord(id: string, raw: Partial<ListingRecord>): ListingRecord
     email: raw.email ?? '',
     address: raw.address ?? '',
     website: raw.website ?? '',
+    helperCategory: raw.helperCategory,
     submittedByEmail: raw.submittedByEmail?.trim().toLowerCase() ?? '',
     submittedByName: raw.submittedByName ?? '',
     submittedAt: toIsoString(raw.submittedAt),
@@ -148,6 +151,12 @@ async function validateInput(input: ListingInput) {
 
   if (!input.submittedByEmail.trim()) {
     throw new Error('A signed-in publisher account is required.');
+  }
+
+  if (input.moduleKey === 'helpers') {
+    if (!input.helperCategory || !isHelperCategory(input.helperCategory)) {
+      throw new Error('Select a valid helper category.');
+    }
   }
 
   return town;
@@ -287,6 +296,9 @@ export async function createListing(input: ListingInput): Promise<ListingRecord>
     email: input.email.trim(),
     address: input.address.trim(),
     website: input.website.trim(),
+    helperCategory: input.moduleKey === 'helpers' && input.helperCategory && isHelperCategory(input.helperCategory)
+      ? input.helperCategory
+      : undefined,
     submittedByEmail: normalizedSubmittedByEmail,
     submittedByName: input.submittedByName.trim(),
     submittedAt: now,
@@ -322,6 +334,7 @@ export async function createListing(input: ListingInput): Promise<ListingRecord>
           email: record.email,
           address: record.address,
           website: record.website,
+          helperCategory: record.helperCategory,
           submittedByName: record.submittedByName,
           status: 'pending',
           approved: false,

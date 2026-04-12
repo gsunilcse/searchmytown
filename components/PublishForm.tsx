@@ -13,10 +13,13 @@ import {
   AlignLeft,
   CheckCircle2,
   AlertCircle,
-  Loader2
+  Loader2,
+  Check,
+  ChevronDown
 } from 'lucide-react';
-import type { DirectoryModuleKey, ModuleDefinition } from '@/config/modules';
+import { HELPER_CATEGORY_LABELS, type DirectoryModuleKey, type ModuleDefinition } from '@/config/modules';
 import type { Town } from '@/config/towns';
+import { cn } from '@/lib/utils';
 
 type PublishFormProps = {
   town: Town;
@@ -29,6 +32,7 @@ type FormState = {
   movieLanguage: string;
   showDate: string;
   showTimes: string;
+  helperCategory: string;
   description: string;
   contactName: string;
   phone: string;
@@ -43,6 +47,7 @@ const INITIAL_FORM_STATE: FormState = {
   movieLanguage: '',
   showDate: '',
   showTimes: '',
+  helperCategory: '',
   description: '',
   contactName: '',
   phone: '',
@@ -85,12 +90,82 @@ async function submitListing(townId: string, moduleKey: DirectoryModuleKey, payl
   }
 }
 
+function PremiumSelect({
+  value,
+  onChange,
+  options,
+  label,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  options: string[];
+  label: string;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <div className="relative space-y-2">
+      <label className="text-xs font-bold uppercase tracking-widest text-zinc-500 ml-1">{label}</label>
+      <div className="relative">
+        <button
+          type="button"
+          onClick={() => setIsOpen((currentValue) => !currentValue)}
+          className={cn(
+            'w-full flex items-center justify-between gap-3 rounded-2xl border bg-zinc-950/50 py-4 px-4 text-sm text-white text-left transition-all',
+            isOpen ? 'border-emerald-500 ring-2 ring-emerald-500/10' : 'border-white/5 hover:border-white/10'
+          )}
+        >
+          <span className={cn('truncate', !value && 'text-zinc-500')}>{value || 'Select a category'}</span>
+          <ChevronDown className={cn('h-4 w-4 text-zinc-500 transition-transform', isOpen && 'rotate-180')} />
+        </button>
+
+        <AnimatePresence>
+          {isOpen && (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
+              <motion.div
+                initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                className="absolute left-0 right-0 top-full z-50 mt-2 overflow-hidden rounded-2xl border border-white/10 bg-zinc-900 shadow-2xl backdrop-blur-xl"
+              >
+                <div className="max-h-60 overflow-y-auto p-2">
+                  {options.map((option) => (
+                    <button
+                      key={option}
+                      type="button"
+                      onClick={() => {
+                        onChange(option);
+                        setIsOpen(false);
+                      }}
+                      className={cn(
+                        'flex w-full items-center justify-between rounded-xl px-4 py-3 text-sm transition-all',
+                        value === option
+                          ? 'bg-emerald-500 text-zinc-950 font-bold'
+                          : 'text-zinc-300 hover:bg-white/5 hover:text-white'
+                      )}
+                    >
+                      {option}
+                      {value === option && <Check className="h-4 w-4" />}
+                    </button>
+                  ))}
+                </div>
+              </motion.div>
+            </>
+          )}
+        </AnimatePresence>
+      </div>
+    </div>
+  );
+}
+
 export default function PublishForm({ town, moduleDefinition }: PublishFormProps) {
   const [formState, setFormState] = useState<FormState>(INITIAL_FORM_STATE);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const isMoviesModule = moduleDefinition.key === 'movies';
+  const isHelpersModule = moduleDefinition.key === 'helpers';
 
   function updateField(field: keyof FormState, value: string) {
     setFormState((currentValue) => ({
@@ -101,6 +176,11 @@ export default function PublishForm({ town, moduleDefinition }: PublishFormProps
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (isHelpersModule && !formState.helperCategory) {
+      setErrorMessage('Please select a helper category.');
+      return;
+    }
+
     setIsSubmitting(true);
     setErrorMessage(null);
     setSuccessMessage(null);
@@ -207,6 +287,15 @@ export default function PublishForm({ town, moduleDefinition }: PublishFormProps
                   />
                 </div>
               </div>
+            )}
+
+            {isHelpersModule && (
+              <PremiumSelect
+                value={formState.helperCategory}
+                onChange={(value) => updateField('helperCategory', value)}
+                options={HELPER_CATEGORY_LABELS}
+                label="Helper Category"
+              />
             )}
           </div>
 

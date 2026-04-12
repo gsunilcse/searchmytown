@@ -1,5 +1,6 @@
 import { cert, getApps, initializeApp, type App } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
+import { getStorage } from 'firebase-admin/storage';
 
 function getRequiredEnv(name: string): string | null {
   const value = process.env[name];
@@ -108,4 +109,17 @@ export function getFirestoreAdmin() {
   }
 
   return getFirestore(app);
+}
+
+export function isStorageConfigured(): boolean {
+  return Boolean(process.env.FIREBASE_STORAGE_BUCKET?.trim());
+}
+
+export function getStorageAdmin() {
+  const app = getFirebaseAdminApp();
+  const bucket = process.env.FIREBASE_STORAGE_BUCKET?.trim();
+  if (!bucket) {
+    throw new Error('FIREBASE_STORAGE_BUCKET is not configured. Add it to your environment variables.');
+  }
+  return getStorage(app).bucket(bucket);
 }

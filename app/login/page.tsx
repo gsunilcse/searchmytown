@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import LoginHub from '@/components/LoginHub';
-import { canAccessAdmin, getAppSession, getConfiguredSuperAdminEmail, getViewerFromSession, isAuthConfigured, sanitizeCallbackPath } from '@/lib/auth';
+import { canAccessAdmin, canPublish, getAppSession, getConfiguredSuperAdminEmail, getViewerFromSession, isAuthConfigured, sanitizeCallbackPath } from '@/lib/auth';
 import { getTownPath } from '@/config/towns';
 import { buildMetadata } from '@/lib/seo';
 import { getListingsBySubmitter } from '@/lib/submissions';
@@ -47,7 +47,19 @@ function getAuthenticatedRedirectPath(
   currentTownId: string | null
 ): string {
   if (callbackUrl !== '/login') {
-    return callbackUrl;
+    const publishMatch = callbackUrl.match(/^\/([^/]+)\/publish\/[^/]+$/);
+    if (publishMatch) {
+      const callbackTownId = publishMatch[1] ?? '';
+      if (canPublish(viewer, callbackTownId)) {
+        return callbackUrl;
+      }
+    } else if (callbackUrl === '/admin' || callbackUrl.startsWith('/admin/')) {
+      if (canAccessAdmin(viewer)) {
+        return callbackUrl;
+      }
+    } else {
+      return callbackUrl;
+    }
   }
 
   if (canAccessAdmin(viewer)) {

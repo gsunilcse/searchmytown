@@ -7,6 +7,8 @@ import { buildMetadata } from '@/lib/seo';
 import { getAllListings } from '@/lib/submissions';
 import { getManagedTowns } from '@/lib/town-settings';
 import { getAllSignupRequests } from '@/lib/user-access';
+import { getAllPendingArticles, getArticlesByTownAdmin } from '@/lib/articles';
+import { isFirestoreConfigured } from '@/lib/firestore-admin';
 
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = buildMetadata({
@@ -53,6 +55,12 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
       ])
     : [[], [], []];
 
+  const articles = canAccessAdmin(viewer) && isFirestoreConfigured()
+    ? await (canReviewAdminRequests(viewer)
+        ? getAllPendingArticles().catch(() => [])
+        : getArticlesByTownAdmin(viewer.email ?? '', viewer.adminTownIds).catch(() => []))
+    : [];
+
   const scopedListings = canReviewAdminRequests(viewer)
     ? allListings
     : allListings.filter((listing) => viewer.adminTownIds.includes(listing.townId));
@@ -95,6 +103,7 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
           initialListings={scopedListings}
           initialTowns={scopedTowns}
           initialAdminAccessRequests={adminAccessRequests}
+          initialArticles={articles}
           adminEmail={session?.user?.email ?? null}
           viewer={viewer}
         />

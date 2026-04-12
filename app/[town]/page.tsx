@@ -4,6 +4,8 @@ import TownPortal from '@/components/TownPortal';
 import { getAppViewer } from '@/lib/auth';
 import { buildTownMetadata } from '@/lib/seo';
 import { getEnabledTownById, getEnabledTowns } from '@/lib/town-settings';
+import { getApprovedArticlesForTown } from '@/lib/articles';
+import { isFirestoreConfigured } from '@/lib/firestore-admin';
 
 export const dynamic = 'force-dynamic';
 
@@ -32,5 +34,9 @@ export default async function TownPage({ params }: TownPageProps) {
     notFound();
   }
 
-  return <TownPortal initialTownId={selectedTown.id} availableTowns={enabledTowns} viewer={viewer} />;
+  const articles = isFirestoreConfigured()
+    ? await getApprovedArticlesForTown(selectedTown.id).catch(() => [])
+    : [];
+
+  return <TownPortal initialTownId={selectedTown.id} availableTowns={enabledTowns} viewer={viewer} articles={articles} />;
 }

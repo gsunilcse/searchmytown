@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { 
+  HELPER_CATEGORY_DEFINITIONS,
   getModuleDefinition, 
   getTownPublishPath, 
   isDirectoryModuleKey 
@@ -30,6 +31,22 @@ type ModulePageProps = {
     module: string;
   }>;
 };
+
+function normalizeHelperText(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function getHelperCategoryLabel(listing: { title: string; summary: string; description: string; helperCategory?: string }): string | undefined {
+  if (listing.helperCategory && HELPER_CATEGORY_DEFINITIONS.some((category) => category.label === listing.helperCategory)) {
+    return listing.helperCategory;
+  }
+
+  const haystack = normalizeHelperText(`${listing.title} ${listing.summary} ${listing.description}`);
+
+  return HELPER_CATEGORY_DEFINITIONS.find((category) =>
+    category.keywords.some((keyword) => haystack.includes(normalizeHelperText(keyword)))
+  )?.label;
+}
 
 export const dynamic = 'force-dynamic';
 
@@ -64,6 +81,18 @@ export default async function ModulePage({ params }: ModulePageProps) {
   const seoContent = getModuleSeoContent(selectedTown, moduleDefinition);
   const moduleJsonLd = getModuleJsonLd(selectedTown, moduleDefinition, listings);
   const isMoviesModule = moduleDefinition.key === 'movies';
+  const isHelpersModule = moduleDefinition.key === 'helpers';
+
+  const helperListingsByCategory = isHelpersModule
+    ? HELPER_CATEGORY_DEFINITIONS.map((category) => ({
+        category,
+        items: listings.filter((listing) => {
+          const listingCategory = getHelperCategoryLabel(listing);
+          return listingCategory === category.label && Boolean(listing.phone.trim());
+        }),
+      }))
+    : [];
+  const hasHelperContacts = helperListingsByCategory.some((categoryGroup) => categoryGroup.items.length > 0);
 
   let liveMoviesData: Awaited<ReturnType<typeof fetchLiveMoviesByTownName>> | null = null;
   let liveMoviesLoadError = false;
@@ -208,7 +237,7 @@ export default async function ModulePage({ params }: ModulePageProps) {
           </div>
         )}
 
-        {!isMoviesModule &&
+        {!isMoviesModule && !isHelpersModule &&
           listings.map((listing) => (
             <article id={listing.id} key={listing.id} className="premium-card group hover:scale-[1.02] transition-all duration-300">
               <div className="flex items-start justify-between">
@@ -258,7 +287,60 @@ export default async function ModulePage({ params }: ModulePageProps) {
             </article>
           ))}
 
-        {!isMoviesModule && listings.length === 0 && (
+        {isHelpersModule && (
+          <div className="lg:col-span-2 xl:col-span-3 space-y-8">
+            <div className="premium-card border-emerald-500/20 bg-gradient-to-br from-emerald-500/10 via-zinc-950/50 to-zinc-950/80">
+              <h2 className="text-3xl font-display text-white">Find trusted helpers by category</h2>
+              <p className="mt-3 text-sm text-zinc-400 leading-relaxed">
+                Quick contacts for {selectedTown.name}. Each category shows only helper name and phone number.
+              </p>
+            </div>
+
+            <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
+              {helperListingsByCategory.map(({ category, items }) => (
+                <section
+                  key={category.label}
+                  className="rounded-[2rem] border border-white/10 bg-[linear-gradient(160deg,rgba(16,185,129,0.12),rgba(24,24,27,0.85)_45%,rgba(24,24,27,0.96)_100%)] p-6 shadow-[0_20px_45px_rgba(15,23,42,0.25)]"
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl" aria-hidden>
+                      {category.icon}
+                    </span>
+                    <h3 className="text-lg font-bold text-white leading-tight">{category.label}</h3>
+                  </div>
+
+                  <div className="mt-5 space-y-3">
+                    {items.length > 0 ? (
+                      items.map((listing) => (
+                        <a
+                          key={listing.id}
+                          href={`tel:${listing.phone}`}
+                          className="block rounded-2xl border border-white/10 bg-zinc-950/50 p-4 transition hover:border-emerald-400/50 hover:bg-zinc-900/80"
+                        >
+                          <div className="text-sm font-bold text-white truncate">{listing.contactName || listing.title}</div>
+                          <div className="mt-1 text-xs font-semibold text-emerald-300">{listing.phone}</div>
+                        </a>
+                      ))
+                    ) : (
+                      <div className="rounded-2xl border border-dashed border-white/10 bg-zinc-950/40 p-4 text-xs text-zinc-500">
+                        No contacts listed yet
+                      </div>
+                    )}
+                  </div>
+                </section>
+              ))}
+            </div>
+
+            {!hasHelperContacts && (
+              <div className="premium-card border-dashed text-center">
+                <h3 className="text-xl font-bold text-white">No helper contacts are live yet</h3>
+                <p className="mt-2 text-sm text-zinc-400">Be the first to publish a verified helper profile for {selectedTown.name}.</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {!isMoviesModule && !isHelpersModule && listings.length === 0 && (
           <div className="lg:col-span-2 xl:col-span-3 premium-card border-dashed py-24 text-center flex flex-col items-center">
             <div className="h-20 w-20 flex items-center justify-center rounded-[2.5rem] bg-emerald-500/10 border border-emerald-500/20 text-4xl mb-8">
               {moduleDefinition.icon}

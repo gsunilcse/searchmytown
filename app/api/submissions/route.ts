@@ -45,6 +45,7 @@ export async function POST(request: Request) {
       email: typeof body.email === 'string' ? body.email : '',
       address: typeof body.address === 'string' ? body.address : '',
       website: typeof body.website === 'string' ? body.website : '',
+      helperCategory: typeof body.helperCategory === 'string' ? body.helperCategory : undefined,
       submittedByEmail: viewer.email,
       submittedByName: viewer.name ?? '',
     });

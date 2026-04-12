@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
-import PublishForm from '@/components/PublishForm';
+import PublishFormClient from '@/components/PublishFormClient';
 import { getModuleDefinition, getTownModulePath, isDirectoryModuleKey } from '@/config/modules';
 import { canPublish, getAppViewer } from '@/lib/auth';
 import { buildPublishMetadata } from '@/lib/seo';
@@ -89,7 +89,7 @@ export default async function PublishPage({ params }: PublishPageProps) {
           </div>
         </section>
 
-        <PublishForm town={selectedTown} moduleDefinition={moduleDefinition} />
+        <PublishFormClient town={selectedTown} moduleDefinition={moduleDefinition} />
       </div>
     </main>
   );

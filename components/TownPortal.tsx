@@ -32,11 +32,14 @@ import {
   type NavCategory,
   type Town,
 } from '@/config/towns';
+import type { ArticleRecord } from '@/lib/articles';
+import ArticleCarousel from '@/components/ArticleCarousel';
 
 type TownPortalProps = {
   initialTownId?: string | null;
   availableTowns: Town[];
   viewer: AppViewer;
+  articles?: ArticleRecord[];
 };
 
 type HeroSlide = {
@@ -261,7 +264,7 @@ function CategoryMenu({
   );
 }
 
-export default function TownPortal({ initialTownId = null, availableTowns, viewer }: TownPortalProps) {
+export default function TownPortal({ initialTownId = null, availableTowns, viewer, articles = [] }: TownPortalProps) {
   const router = useRouter();
   const [activeTownId, setActiveTownId] = useState<string | null>(initialTownId);
   const [isLocationModalOpen, setIsLocationModalOpen] = useState(initialTownId === null && availableTowns.length > 1);
@@ -669,9 +672,11 @@ export default function TownPortal({ initialTownId = null, availableTowns, viewe
           </div>
         </section>
 
+        {/* Town Articles Carousel */}
+        {articles.length > 0 && <ArticleCarousel articles={articles} />}
+
         {/* Quick Access Grid */}
-        <section id="browse-modules" className="mx-auto max-w-7xl px-4 py-24 sm:px-6 lg:px-8">
-          <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between px-2">
+        <section id="browse-modules" className="mx-auto max-w-7xl px-4 py-24 sm:px-6 lg:px-8">          <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between px-2">
             <div>
               <div className="text-xs font-bold uppercase tracking-[0.3em] text-emerald-500">Service Directory</div>
               <h2 className="mt-4 font-display text-4xl sm:text-5xl">Explore by Categories</h2>

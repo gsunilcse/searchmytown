@@ -27,6 +27,45 @@ export type ModuleDefinition = {
   summaryPlaceholder: string;
 };
 
+export type HelperCategoryDefinition = {
+  label: string;
+  icon: string;
+  keywords: string[];
+};
+
+export const HELPER_CATEGORY_DEFINITIONS: HelperCategoryDefinition[] = [
+  { label: 'Carpenter', icon: '🪚', keywords: ['carpenter', 'wood work', 'woodwork', 'furniture work'] },
+  { label: 'Plumber', icon: '🔧', keywords: ['plumber', 'plumbing', 'pipe repair'] },
+  { label: 'Electrician', icon: '⚡', keywords: ['electrician', 'electrical', 'wiring', 'current work'] },
+  { label: 'Box cricket', icon: '🏏', keywords: ['box cricket', 'cricket turf', 'cricket'] },
+  { label: 'Sports', icon: '🏅', keywords: ['sports', 'sports club', 'sports coaching'] },
+  { label: 'Badminton', icon: '🏸', keywords: ['badminton', 'shuttle'] },
+  { label: 'Basketball', icon: '🏀', keywords: ['basketball'] },
+  { label: 'AC repair/Servicing', icon: '❄️', keywords: ['ac repair', 'ac service', 'air conditioner'] },
+  { label: 'Water purifier Repair/Servicing', icon: '💧', keywords: ['water purifier', 'ro service', 'ro repair'] },
+  { label: 'Paints', icon: '🎨', keywords: ['paint', 'painting', 'paints'] },
+  { label: 'House maid', icon: '🧹', keywords: ['house maid', 'maid', 'domestic help'] },
+  { label: 'Washing machine servicing', icon: '🫧', keywords: ['washing machine', 'washer service'] },
+  { label: 'Stove repair', icon: '🔥', keywords: ['stove repair', 'gas stove'] },
+  { label: 'Mesh door', icon: '🚪', keywords: ['mesh door', 'mosquito mesh'] },
+  { label: 'Welding', icon: '🛠️', keywords: ['welding', 'welder'] },
+  { label: 'Mason', icon: '🧱', keywords: ['mason', 'construction worker'] },
+  { label: 'Milk', icon: '🥛', keywords: ['milk', 'milk delivery', 'dairy'] },
+  { label: 'Newspaper', icon: '🗞️', keywords: ['newspaper', 'paper delivery'] },
+  { label: 'Catering', icon: '🍛', keywords: ['catering', 'caterer'] },
+  { label: 'Saloon', icon: '💈', keywords: ['saloon', 'salon', 'hair cut', 'barber'] },
+  { label: 'Rmp', icon: '🩺', keywords: ['rmp', 'general practitioner'] },
+  { label: 'Blood test', icon: '🧪', keywords: ['blood test', 'lab test', 'diagnostic'] },
+  { label: 'Car repair/Servicing', icon: '🚗', keywords: ['car repair', 'car service', 'mechanic car'] },
+  { label: 'Bike Repair', icon: '🏍️', keywords: ['bike repair', 'bike service', 'two wheeler'] },
+  { label: 'Medicines home delivery', icon: '💊', keywords: ['medicines home delivery', 'medicine delivery', 'pharmacy delivery'] },
+  { label: 'Home tutions', icon: '📚', keywords: ['home tutions', 'home tuition', 'home tutor', 'tuition'] },
+];
+
+export const HELPER_CATEGORY_LABELS = HELPER_CATEGORY_DEFINITIONS.map((category) => category.label);
+
+export type HelperCategory = (typeof HELPER_CATEGORY_LABELS)[number];
+
 export const MODULE_DEFINITIONS: Record<DirectoryModuleKey, ModuleDefinition> = {
   schools: {
     key: 'schools',
@@ -215,4 +254,8 @@ export function getTownModulePath(townId: string, moduleKey: DirectoryModuleKey)
 
 export function getTownPublishPath(townId: string, moduleKey: DirectoryModuleKey): string {
   return `/${townId}/publish/${moduleKey}`;
+}
+
+export function isHelperCategory(value: string): value is HelperCategory {
+  return HELPER_CATEGORY_LABELS.includes(value as HelperCategory);
 }

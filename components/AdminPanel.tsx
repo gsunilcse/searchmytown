@@ -19,7 +19,9 @@ import {
   Eye,
   EyeOff,
   UserCheck,
-  Globe
+  Globe,
+  Newspaper,
+  ImageOff
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { MODULE_DEFINITIONS, MODULE_KEYS, type DirectoryModuleKey } from '@/config/modules';
@@ -27,13 +29,40 @@ import type { Town } from '@/config/towns';
 import type { AppViewer } from '@/lib/auth';
 import type { ListingRecord, SubmissionStatus } from '@/lib/submissions';
 import type { SignupRequestRecord } from '@/lib/user-access';
+import type { ArticleRecord } from '@/lib/articles';
+import ArticleSubmitForm from '@/components/ArticleSubmitForm';
 
 const UTC_MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+function ArticleSubmitFormSection({ townIds, towns }: { townIds: string[]; towns: Town[] }) {
+  const [selectedTownId, setSelectedTownId] = useState(townIds[0] ?? '');
+  const townName = towns.find(t => t.id === selectedTownId)?.name ?? selectedTownId;
+  return (
+    <div className="space-y-4">
+      {townIds.length > 1 && (
+        <div className="space-y-2">
+          <label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">Select Town</label>
+          <select
+            value={selectedTownId}
+            onChange={e => setSelectedTownId(e.target.value)}
+            className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none"
+          >
+            {townIds.map(id => (
+              <option key={id} value={id}>{towns.find(t => t.id === id)?.name ?? id}</option>
+            ))}
+          </select>
+        </div>
+      )}
+      {selectedTownId && <ArticleSubmitForm townId={selectedTownId} townName={townName} />}
+    </div>
+  );
+}
 
 type AdminPanelProps = {
   initialListings: ListingRecord[];
   initialTowns: Town[];
   initialAdminAccessRequests: SignupRequestRecord[];
+  initialArticles: ArticleRecord[];
   adminEmail?: string | null;
   viewer: AppViewer;
 };
@@ -84,10 +113,22 @@ async function updateAdminAccessRequestStatus(id: string, status: AccessReviewAc
   return data.record;
 }
 
+async function updateArticleReviewStatus(id: string, status: 'approved' | 'rejected', moderationNote: string) {
+  const response = await fetch(`/api/admin/articles/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status, moderationNote }),
+  });
+  const data = (await response.json()) as { error?: string; record?: ArticleRecord };
+  if (!response.ok || !data.record) throw new Error(data.error ?? 'Unable to update article.');
+  return data.record;
+}
+
 export default function AdminPanel({
   initialListings,
   initialTowns,
   initialAdminAccessRequests,
+  initialArticles,
   adminEmail = null,
   viewer,
 }: AdminPanelProps) {
@@ -95,6 +136,8 @@ export default function AdminPanel({
   const [listings, setListings] = useState(initialListings);
   const [towns, setTowns] = useState(initialTowns);
   const [adminAccessRequests, setAdminAccessRequests] = useState(initialAdminAccessRequests);
+  const [articles, setArticles] = useState(initialArticles);
+  const [busyArticleId, setBusyArticleId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<'all' | SubmissionStatus>('pending');
   const [moduleFilter, setModuleFilter] = useState<'all' | DirectoryModuleKey>('all');
   const [townFilter, setTownFilter] = useState<'all' | string>('all');
@@ -167,6 +210,21 @@ export default function AdminPanel({
       setErrorMessage('Access review failed.');
     } finally {
       setBusyAccessRequestId(null);
+    }
+  }
+
+  async function handleArticleReview(id: string, status: 'approved' | 'rejected') {
+    setBusyArticleId(id);
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    try {
+      const updated = await updateArticleReviewStatus(id, status, `Reviewed by ${viewer.email}`);
+      setArticles(curr => curr.map(item => item.id === id ? updated : item));
+      setSuccessMessage(`Article "${updated.title}" ${status}.`);
+    } catch (e) {
+      setErrorMessage(e instanceof Error ? e.message : 'Article review failed.');
+    } finally {
+      setBusyArticleId(null);
     }
   }
 
@@ -376,6 +434,110 @@ export default function AdminPanel({
           )}
         </div>
       </section>
+
+      {/* Town Admin: Submit Article */}
+      {!isSuperAdmin && viewer.adminTownIds.length > 0 && (
+        <section className="premium-card p-8 sm:p-12">
+          <div className="flex items-center gap-3 text-emerald-500">
+            <Newspaper className="h-5 w-5" />
+            <h2 className="text-xl font-bold">Publish Town Article</h2>
+          </div>
+          <p className="mt-2 text-xs text-zinc-500">
+            Submit articles for your town carousel. Each article requires super-admin approval. Max 5 active per town.
+          </p>
+          <div className="mt-8 grid gap-8 lg:grid-cols-2">
+            <div>
+              <ArticleSubmitFormSection townIds={viewer.adminTownIds} towns={towns} />
+            </div>
+            <div>
+              <div className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 mb-4">Your Recent Submissions</div>
+              <div className="space-y-3">
+                {articles.filter(a => viewer.adminTownIds.includes(a.townId)).length === 0 && (
+                  <p className="text-sm text-zinc-600">No articles yet.</p>
+                )}
+                {articles.filter(a => viewer.adminTownIds.includes(a.townId)).slice(0, 5).map(a => (
+                  <div key={a.id} className="flex items-start gap-3 rounded-xl border border-white/5 bg-white/5 p-4">
+                    {a.images[0] ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={a.images[0]} alt="" className="h-12 w-12 rounded-lg object-cover shrink-0" />
+                    ) : (
+                      <div className="h-12 w-12 rounded-lg bg-zinc-800 flex items-center justify-center shrink-0">
+                        <ImageOff className="h-5 w-5 text-zinc-600" />
+                      </div>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold text-white truncate">{a.title}</p>
+                      <p className="text-[10px] text-zinc-500 mt-0.5">{a.townName} · {formatAdminTimestamp(a.submittedAt)}</p>
+                    </div>
+                    <span className={cn(
+                      'shrink-0 text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded-md',
+                      a.status === 'approved' ? 'bg-emerald-500/20 text-emerald-400' :
+                      a.status === 'rejected' ? 'bg-red-500/20 text-red-400' :
+                      'bg-amber-500/20 text-amber-400'
+                    )}>{a.status}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Article Moderation */}
+      {isSuperAdmin && (
+        <section className="premium-card p-8 sm:p-12">
+          <div className="flex items-center gap-3 text-emerald-500">
+            <Newspaper className="h-5 w-5" />
+            <h2 className="text-xl font-bold">Town Articles</h2>
+          </div>
+          <p className="mt-2 text-xs text-zinc-500">Approve or reject articles submitted by town admins. Max 5 approved articles per town — oldest is removed on new approval.</p>
+
+          <div className="mt-10 space-y-4">
+            {articles.filter(a => a.status === 'pending').length === 0 && (
+              <div className="py-12 text-center text-zinc-600 text-sm">No pending articles.</div>
+            )}
+            {articles.filter(a => a.status === 'pending').map(article => (
+              <div key={article.id} className="bg-white/5 border border-white/5 rounded-[2rem] p-6 sm:p-8">
+                <div className="flex flex-col lg:flex-row gap-6 items-start justify-between">
+                  <div className="flex-1 space-y-3 min-w-0">
+                    <div className="flex flex-wrap gap-2 text-[10px] font-bold uppercase tracking-tighter">
+                      <span className="bg-blue-500/20 text-blue-400 px-2 py-1 rounded-md">{article.townName}</span>
+                      <span className="bg-zinc-800 text-zinc-400 px-2 py-1 rounded-md">{formatAdminTimestamp(article.submittedAt)}</span>
+                    </div>
+                    <h4 className="text-xl font-bold text-white">{article.title}</h4>
+                    <p className="text-sm text-zinc-400 leading-relaxed line-clamp-3">{article.content}</p>
+                    {article.images.length > 0 && (
+                      <div className="flex gap-2 flex-wrap">
+                        {article.images.map((url, i) => (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img key={i} src={url} alt={`Article image ${i + 1}`} className="h-20 w-20 rounded-xl object-cover border border-white/10" />
+                        ))}
+                      </div>
+                    )}
+                    <p className="text-xs text-zinc-500">By {article.submittedByName} ({article.submittedByEmail})</p>
+                  </div>
+                  <div className="flex flex-col gap-3 w-full lg:w-48 shrink-0">
+                    <button
+                      onClick={() => void handleArticleReview(article.id, 'approved')}
+                      disabled={busyArticleId === article.id}
+                      className="w-full py-3 rounded-xl bg-emerald-500 text-zinc-950 font-bold text-sm hover:bg-emerald-400 transition-all"
+                    >
+                      Approve & Publish
+                    </button>
+                    <button
+                      onClick={() => void handleArticleReview(article.id, 'rejected')}
+                      disabled={busyArticleId === article.id}
+                      className="w-full py-3 rounded-xl bg-white/5 border border-white/10 text-white font-bold text-sm hover:bg-red-500/10 transition-all"
+                    >
+                      Reject
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Access Requests */}
       {isSuperAdmin && (
