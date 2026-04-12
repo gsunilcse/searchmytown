@@ -270,6 +270,8 @@ export async function getListingById(moduleKey: DirectoryModuleKey, id: string):
 export async function createListing(input: ListingInput): Promise<ListingRecord> {
   const town = await validateInput(input);
   const now = new Date().toISOString();
+  const normalizedSubmittedByEmail = input.submittedByEmail.trim().toLowerCase();
+  const shouldUpsertMovieListing = input.moduleKey === 'movies';
   const record: ListingRecord = {
     id: crypto.randomUUID(),
     moduleKey: input.moduleKey,
@@ -285,7 +287,7 @@ export async function createListing(input: ListingInput): Promise<ListingRecord>
     email: input.email.trim(),
     address: input.address.trim(),
     website: input.website.trim(),
-    submittedByEmail: input.submittedByEmail.trim().toLowerCase(),
+    submittedByEmail: normalizedSubmittedByEmail,
     submittedByName: input.submittedByName.trim(),
     submittedAt: now,
     updatedAt: now,
@@ -298,20 +300,103 @@ export async function createListing(input: ListingInput): Promise<ListingRecord>
   if (!isFirestoreConfigured()) {
     assertWritablePersistentStore('Creating listings');
     const items = await readFileStore();
+
+    if (shouldUpsertMovieListing) {
+      const matchingItems = items.filter(
+        (item) =>
+          item.moduleKey === 'movies' &&
+          item.townId === input.townId &&
+          item.submittedByEmail === normalizedSubmittedByEmail
+      );
+
+      if (matchingItems.length > 0) {
+        const existingRecord = matchingItems[0]!;
+        const updatedRecord: ListingRecord = {
+          ...existingRecord,
+          townName: town.name,
+          title: record.title,
+          summary: record.summary,
+          description: record.description,
+          contactName: record.contactName,
+          phone: record.phone,
+          email: record.email,
+          address: record.address,
+          website: record.website,
+          submittedByName: record.submittedByName,
+          status: 'pending',
+          approved: false,
+          reviewedAt: null,
+          moderationNote: '',
+          updatedAt: now,
+          submittedAt: now,
+        };
+
+        const dedupedItems = items.filter(
+          (item) =>
+            !(
+              item.moduleKey === 'movies' &&
+              item.townId === input.townId &&
+              item.submittedByEmail === normalizedSubmittedByEmail
+            )
+        );
+
+        dedupedItems.unshift(updatedRecord);
+        await writeFileStore(dedupedItems);
+        return updatedRecord;
+      }
+    }
+
     items.unshift(record);
     await writeFileStore(items);
     return record;
   }
 
   try {
-    await getFirestoreAdmin().collection(collectionName).doc(record.id).set({
+    const collectionReference = getFirestoreAdmin().collection(collectionName);
+
+    if (shouldUpsertMovieListing) {
+      const snapshot = await collectionReference
+        .where('townId', '==', input.townId)
+        .where('submittedByEmail', '==', normalizedSubmittedByEmail)
+        .get();
+
+      const primaryDocument = snapshot.docs[0] ?? null;
+      const duplicateDocuments = snapshot.docs.slice(1);
+
+      if (duplicateDocuments.length > 0) {
+        await Promise.all(duplicateDocuments.map((document) => document.ref.delete()));
+      }
+
+      if (primaryDocument) {
+        await primaryDocument.ref.set(
+          {
+            ...record,
+            id: primaryDocument.id,
+            status: 'pending',
+            approved: false,
+            moderationNote: '',
+            reviewedAt: null,
+            submittedAt: FieldValue.serverTimestamp(),
+            updatedAt: FieldValue.serverTimestamp(),
+          },
+          { merge: true }
+        );
+
+        const updatedDocument = await primaryDocument.ref.get();
+        if (updatedDocument.exists) {
+          return normalizeRecord(updatedDocument.id, updatedDocument.data() as Partial<ListingRecord>);
+        }
+      }
+    }
+
+    await collectionReference.doc(record.id).set({
       ...record,
       submittedAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),
       reviewedAt: null,
     });
 
-    const savedDocument = await getFirestoreAdmin().collection(collectionName).doc(record.id).get();
+    const savedDocument = await collectionReference.doc(record.id).get();
     if (!savedDocument.exists) {
       return record;
     }

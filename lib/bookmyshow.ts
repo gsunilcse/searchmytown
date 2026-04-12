@@ -22,6 +22,7 @@ type JsonLdItemList = {
 const BOOK_MY_SHOW_BASE = 'https://in.bookmyshow.com/explore';
 const execFileAsync = promisify(execFile);
 const TOWN_SLUG_OVERRIDES: Record<string, string> = {
+  kukatpally: 'hyderabad',
   visakhapatnam: 'visakha',
 };
 

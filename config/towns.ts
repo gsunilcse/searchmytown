@@ -31,6 +31,7 @@ export type QuickCard = {
 /** Default towns loaded when Firestore is not configured / as fallback */
 export const DEFAULT_TOWNS: Town[] = [
   { id: 'hyderabad', name: 'Hyderabad', state: 'Telangana', enabled: false, coords: { lat: 17.385, lng: 78.4867 } },
+  { id: 'kukatpally-hyderabad', name: 'Kukatpally', state: 'Hyderabad', enabled: true, coords: { lat: 17.4933, lng: 78.3997 } },
   { id: 'ramachandrapuram', name: 'Ramachandrapuram', state: 'Andhra Pradesh', enabled: true, coords: { lat: 16.8363, lng: 82.0254 } },
   { id: 'vijayawada', name: 'Vijayawada', state: 'Andhra Pradesh', enabled: false, coords: { lat: 16.5062, lng: 80.6480 } },
   { id: 'visakhapatnam', name: 'Visakhapatnam', state: 'Andhra Pradesh', enabled: false, coords: { lat: 17.6868, lng: 83.2185 } },

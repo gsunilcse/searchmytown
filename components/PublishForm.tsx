@@ -15,7 +15,6 @@ import {
   AlertCircle,
   Loader2
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
 import type { DirectoryModuleKey, ModuleDefinition } from '@/config/modules';
 import type { Town } from '@/config/towns';
 
@@ -27,6 +26,9 @@ type PublishFormProps = {
 type FormState = {
   title: string;
   summary: string;
+  movieLanguage: string;
+  showDate: string;
+  showTimes: string;
   description: string;
   contactName: string;
   phone: string;
@@ -38,6 +40,9 @@ type FormState = {
 const INITIAL_FORM_STATE: FormState = {
   title: '',
   summary: '',
+  movieLanguage: '',
+  showDate: '',
+  showTimes: '',
   description: '',
   contactName: '',
   phone: '',
@@ -47,6 +52,21 @@ const INITIAL_FORM_STATE: FormState = {
 };
 
 async function submitListing(townId: string, moduleKey: DirectoryModuleKey, payload: FormState) {
+  const requestPayload =
+    moduleKey === 'movies'
+      ? {
+          ...payload,
+          summary: `Now Showing: ${payload.summary.trim()}${payload.movieLanguage.trim() ? ` (${payload.movieLanguage.trim()})` : ''}`,
+          description: [
+            payload.showDate.trim() ? `Show Date: ${payload.showDate.trim()}` : '',
+            payload.showTimes.trim() ? `Show Timings: ${payload.showTimes.trim()}` : '',
+            payload.description.trim(),
+          ]
+            .filter(Boolean)
+            .join('\n'),
+        }
+      : payload;
+
   const response = await fetch('/api/submissions', {
     method: 'POST',
     headers: {
@@ -55,7 +75,7 @@ async function submitListing(townId: string, moduleKey: DirectoryModuleKey, payl
     body: JSON.stringify({
       townId,
       moduleKey,
-      ...payload,
+      ...requestPayload,
     }),
   });
 
@@ -70,6 +90,7 @@ export default function PublishForm({ town, moduleDefinition }: PublishFormProps
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const isMoviesModule = moduleDefinition.key === 'movies';
 
   function updateField(field: keyof FormState, value: string) {
     setFormState((currentValue) => ({
@@ -87,7 +108,11 @@ export default function PublishForm({ town, moduleDefinition }: PublishFormProps
     try {
       await submitListing(town.id, moduleDefinition.key, formState);
       setFormState(INITIAL_FORM_STATE);
-      setSuccessMessage(`${moduleDefinition.singularLabel} submitted. It will only appear publicly after admin approval.`);
+      setSuccessMessage(
+        isMoviesModule
+          ? 'Movie schedule submitted. Your latest entry replaced the previous one and is now pending admin approval.'
+          : `${moduleDefinition.singularLabel} submitted. It will only appear publicly after admin approval.`
+      );
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Unable to submit your request.');
     } finally {
@@ -114,42 +139,91 @@ export default function PublishForm({ town, moduleDefinition }: PublishFormProps
           {/* Title and Summary */}
           <div className="md:col-span-2 space-y-6">
             <div className="space-y-2">
-              <label className="text-xs font-bold uppercase tracking-widest text-zinc-500 ml-1">Listing Title</label>
+              <label className="text-xs font-bold uppercase tracking-widest text-zinc-500 ml-1">
+                {isMoviesModule ? 'Theatre Name' : 'Listing Title'}
+              </label>
               <div className="relative">
                 <FileText className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-600" />
                 <input
                   required
                   value={formState.title}
                   onChange={(event) => updateField('title', event.target.value)}
-                  placeholder={moduleDefinition.titlePlaceholder}
+                  placeholder={isMoviesModule ? 'Example: Sri Lakshmi Cinema' : moduleDefinition.titlePlaceholder}
                   className="w-full rounded-2xl border border-white/5 bg-zinc-950/50 py-4 pl-12 pr-4 text-sm text-white focus:border-emerald-500 outline-none transition-all"
                 />
               </div>
             </div>
 
             <div className="space-y-2">
-              <label className="text-xs font-bold uppercase tracking-widest text-zinc-500 ml-1">Key Summary</label>
+              <label className="text-xs font-bold uppercase tracking-widest text-zinc-500 ml-1">
+                {isMoviesModule ? 'Currently Showing Movies' : 'Key Summary'}
+              </label>
               <div className="relative">
                 <AlignLeft className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-600" />
                 <input
                   required
                   value={formState.summary}
                   onChange={(event) => updateField('summary', event.target.value)}
-                  placeholder={moduleDefinition.summaryPlaceholder}
+                  placeholder={
+                    isMoviesModule
+                      ? 'Example: Court, HIT 3, Dragon'
+                      : moduleDefinition.summaryPlaceholder
+                  }
                   className="w-full rounded-2xl border border-white/5 bg-zinc-950/50 py-4 pl-12 pr-4 text-sm text-white focus:border-emerald-500 outline-none transition-all"
                 />
               </div>
             </div>
+
+            {isMoviesModule && (
+              <div className="grid gap-6 md:grid-cols-3">
+                <div className="space-y-2">
+                  <label className="text-xs font-bold uppercase tracking-widest text-zinc-500 ml-1">Language</label>
+                  <input
+                    required
+                    value={formState.movieLanguage}
+                    onChange={(event) => updateField('movieLanguage', event.target.value)}
+                    placeholder="Telugu"
+                    className="w-full rounded-2xl border border-white/5 bg-zinc-950/50 py-4 px-4 text-sm text-white focus:border-emerald-500 outline-none transition-all"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold uppercase tracking-widest text-zinc-500 ml-1">Show Date</label>
+                  <input
+                    required
+                    type="date"
+                    value={formState.showDate}
+                    onChange={(event) => updateField('showDate', event.target.value)}
+                    className="w-full rounded-2xl border border-white/5 bg-zinc-950/50 py-4 px-4 text-sm text-white focus:border-emerald-500 outline-none transition-all"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold uppercase tracking-widest text-zinc-500 ml-1">Show Timings</label>
+                  <input
+                    required
+                    value={formState.showTimes}
+                    onChange={(event) => updateField('showTimes', event.target.value)}
+                    placeholder="10:00 AM, 1:30 PM, 7:00 PM"
+                    className="w-full rounded-2xl border border-white/5 bg-zinc-950/50 py-4 px-4 text-sm text-white focus:border-emerald-500 outline-none transition-all"
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Description */}
           <div className="md:col-span-2 space-y-2">
-            <label className="text-xs font-bold uppercase tracking-widest text-zinc-500 ml-1">Detailed Insight</label>
+            <label className="text-xs font-bold uppercase tracking-widest text-zinc-500 ml-1">
+              {isMoviesModule ? 'Optional Notes' : 'Detailed Insight'}
+            </label>
             <textarea
               rows={5}
               value={formState.description}
               onChange={(event) => updateField('description', event.target.value)}
-              placeholder="Add key details, timings, specialties, or verified business info..."
+              placeholder={
+                isMoviesModule
+                  ? 'Optional: format (2D/3D), special shows, or important notice...'
+                  : 'Add key details, timings, specialties, or verified business info...'
+              }
               className="w-full rounded-2xl border border-white/5 bg-zinc-950/50 p-4 text-sm text-white focus:border-emerald-500 outline-none transition-all resize-none"
             />
           </div>
