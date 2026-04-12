@@ -111,6 +111,7 @@ export async function fetchLiveMoviesByTownName(townName: string): Promise<{
   const sourceUrl = getBookMyShowMoviesUrlByTownName(townName);
 
   let html = '';
+  let fetchStatus: number | null = null;
 
   try {
     const response = await fetch(sourceUrl, {
@@ -122,6 +123,7 @@ export async function fetchLiveMoviesByTownName(townName: string): Promise<{
       },
       next: { revalidate: 60 * 60 * 3 },
     });
+    fetchStatus = response.status;
 
     if (response.ok) {
       html = await response.text();
@@ -138,16 +140,36 @@ export async function fetchLiveMoviesByTownName(townName: string): Promise<{
     throw new Error('Unable to fetch BookMyShow movies right now.');
   }
 
-  const itemList = extractItemListJsonLd(html);
+  const parseMovies = (inputHtml: string) => {
+    const itemList = extractItemListJsonLd(inputHtml);
+    return (itemList?.itemListElement ?? [])
+      .map((item) => ({
+        name: item.name?.trim() ?? '',
+        url: item.url?.trim() ?? '',
+        image: item.image?.trim() || undefined,
+        position: item.position,
+      }))
+      .filter((movie) => movie.name.length > 0 && movie.url.length > 0);
+  };
 
-  const movies = (itemList?.itemListElement ?? [])
-    .map((item) => ({
-      name: item.name?.trim() ?? '',
-      url: item.url?.trim() ?? '',
-      image: item.image?.trim() || undefined,
-      position: item.position,
-    }))
-    .filter((movie) => movie.name.length > 0 && movie.url.length > 0);
+  let movies = parseMovies(html);
+
+  // Some production environments receive anti-bot HTML with 200 status.
+  // Retry with curl before deciding that no movies are available.
+  if (movies.length === 0) {
+    const curlHtml = await fetchHtmlWithCurl(sourceUrl);
+    if (curlHtml) {
+      movies = parseMovies(curlHtml);
+    }
+  }
+
+  if (movies.length === 0) {
+    throw new Error(
+      fetchStatus
+        ? `BookMyShow response had no parseable movie list (status ${fetchStatus}).`
+        : 'BookMyShow response had no parseable movie list.'
+    );
+  }
 
   return { sourceUrl, movies };
 }
