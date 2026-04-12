@@ -208,7 +208,8 @@ export async function getArticlesByTownAdmin(email: string, townIds: string[]): 
   assertFirestore('getArticlesByTownAdmin');
   if (townIds.length === 0) return [];
   const db = getFirestoreAdmin();
-  // Firestore 'in' supports up to 10 values  const chunks: string[][] = [];
+  // Firestore 'in' supports up to 10 values
+  const chunks: string[][] = [];
   for (let i = 0; i < townIds.length; i += 10) {
     chunks.push(townIds.slice(i, i + 10));
   }
