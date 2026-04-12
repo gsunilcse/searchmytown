@@ -74,6 +74,10 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   const intent = params.intent ?? 'publisher';
   const selectedTown = typeof params.town === 'string' ? await getEnabledTownById(params.town) : null;
 
+  if (!params.town && params.intent !== 'townadmin') {
+    redirect('/');
+  }
+
   if (viewer.isAuthenticated) {
     redirect(getAuthenticatedRedirectPath(callbackUrl, viewer, selectedTown?.id ?? null));
   }

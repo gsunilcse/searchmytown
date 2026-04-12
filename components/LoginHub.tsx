@@ -653,7 +653,7 @@ export default function LoginHub({
                       const isPending = pendingTownIds.has(town.id);
                       return {
                         value: town.id,
-                        label: `${town.name} ${formState.requestedRole === 'townadmin' && (isApproved ? '(Admin Assigned)' : isPending ? '(Pending)' : '')}`,
+                        label: `${town.name}${formState.requestedRole === 'townadmin' ? (isApproved ? ' (Admin Assigned)' : isPending ? ' (Pending)' : '') : ''}`,
                         disabled: formState.requestedRole === 'townadmin' && (isApproved || isPending)
                       };
                     })}

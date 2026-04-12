@@ -400,7 +400,7 @@ export default function TownPortal({ initialTownId = null, availableTowns, viewe
           </p>
           <div className="mt-8">
             <Link
-              href="/login"
+              href="/login?intent=townadmin"
               className="inline-flex items-center gap-2 rounded-full bg-emerald-500 px-8 py-4 text-sm font-semibold text-zinc-950 transition-all hover:bg-emerald-400 hover:scale-105"
             >
               <User className="h-4 w-4" />
@@ -585,7 +585,10 @@ export default function TownPortal({ initialTownId = null, availableTowns, viewe
                   <TrendingUp className="h-3 w-3" />
                   Town Directory 2.0
                 </div>
-                <h1 className="mt-6 font-display text-4xl leading-[1.1] text-white sm:text-6xl lg:text-7xl break-words hyphens-auto">
+                <p className="mt-4 text-sm font-semibold text-zinc-400">
+                  Welcome to <span className="text-white">Search My Town</span> — <span className="text-zinc-500">searchmytown.com</span>
+                </p>
+                <h1 className="mt-3 font-display text-4xl leading-[1.1] text-white sm:text-6xl lg:text-7xl break-words hyphens-auto">
                   Discover the soul of <span className="text-emerald-500">{selectedTown.name}</span>
                 </h1>
                 <p className="mt-8 text-lg leading-relaxed text-zinc-400 sm:text-xl">
@@ -787,12 +790,12 @@ export default function TownPortal({ initialTownId = null, availableTowns, viewe
                 Whether you want to browse or publish, searchmytown.com is built for verified local connections. No noise, just your town.
               </p>
               <div className="mt-10 flex flex-wrap justify-center gap-4">
-                <Link 
-                  href="/login" 
+                <button 
+                  onClick={() => setIsLocationModalOpen(true)}
                   className="rounded-full bg-white px-10 py-4 text-sm font-bold text-zinc-950 transition-all hover:bg-zinc-200"
                 >
                   Create Account
-                </Link>
+                </button>
                 <button 
                   onClick={() => setIsLocationModalOpen(true)}
                   className="rounded-full border border-white/10 bg-white/5 px-10 py-4 text-sm font-bold transition-all hover:bg-white/10"
