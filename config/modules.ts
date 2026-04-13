@@ -25,6 +25,7 @@ export type ModuleDefinition = {
   emptyState: string;
   titlePlaceholder: string;
   summaryPlaceholder: string;
+  hasAvailability?: boolean;
 };
 
 export type HelperCategoryDefinition = {
@@ -231,6 +232,7 @@ export const MODULE_DEFINITIONS: Record<DirectoryModuleKey, ModuleDefinition> = 
     emptyState: 'No approved function halls are live for this town yet.',
     titlePlaceholder: 'Example: Sri Lakshmi Function Hall',
     summaryPlaceholder: 'Short summary of venue capacity, occasions hosted, or landmark',
+    hasAvailability: true,
   },
 };
 

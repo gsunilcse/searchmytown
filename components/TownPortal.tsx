@@ -513,6 +513,16 @@ export default function TownPortal({ initialTownId = null, availableTowns, viewe
                             <div className="mt-1 truncate font-medium text-white">{viewer.email}</div>
                           </div>
                           <div className="p-2">
+                            {viewer.publisherTownIds.includes(selectedTown.id) && (
+                              <Link
+                                href={`/${selectedTown.id}/my-listings`}
+                                onClick={() => setAccountMenuOpen(false)}
+                                className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-zinc-300 transition-colors hover:bg-white/5 hover:text-white"
+                              >
+                                <Settings className="h-4 w-4" />
+                                My Listings
+                              </Link>
+                            )}
                             {canAccessAdminWorkspace && (
                               <Link
                                 href="/admin"

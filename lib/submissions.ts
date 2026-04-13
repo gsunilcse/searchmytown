@@ -34,6 +34,7 @@ export type ListingRecord = {
   helperLocality: string;
   phoneClickCount: number;
   lastPhoneClickAt: string | null;
+  availability: Record<string, 'available' | 'booked'> | null;
   submittedByEmail: string;
   submittedByName: string;
   submittedAt: string;
@@ -64,6 +65,7 @@ export type ListingInput = {
 
 const DATA_FILE_PATH = path.join(process.cwd(), 'data', 'town-submissions.json');
 const DEFAULT_HELPER_VALIDITY_DAYS = 30;
+const DEFAULT_LISTING_VALIDITY_DAYS = 90;
 
 function canUseLocalMutableFallback(): boolean {
   return process.env.NODE_ENV !== 'production';
@@ -138,6 +140,7 @@ function normalizeRecord(id: string, raw: Partial<ListingRecord>): ListingRecord
     helperLocality: raw.helperLocality ?? '',
     phoneClickCount: typeof raw.phoneClickCount === 'number' ? raw.phoneClickCount : 0,
     lastPhoneClickAt: raw.lastPhoneClickAt ? toIsoString(raw.lastPhoneClickAt) : null,
+    availability: typeof raw.availability === 'object' && raw.availability !== null ? raw.availability : null,
     submittedByEmail: raw.submittedByEmail?.trim().toLowerCase() ?? '',
     submittedByName: raw.submittedByName ?? '',
     submittedAt: toIsoString(raw.submittedAt),
@@ -360,6 +363,7 @@ export async function createListing(input: ListingInput): Promise<ListingRecord>
     helperLocality: input.moduleKey === 'helpers' ? (input.helperLocality ?? '').trim() : '',
     phoneClickCount: 0,
     lastPhoneClickAt: null,
+    availability: null,
     submittedByEmail: normalizedSubmittedByEmail,
     submittedByName: input.submittedByName.trim(),
     submittedAt: now,
@@ -451,19 +455,18 @@ export async function createListing(input: ListingInput): Promise<ListingRecord>
       }
 
       if (primaryDocument) {
-        await primaryDocument.ref.set(
-          {
-            ...record,
-            id: primaryDocument.id,
-            status: 'pending',
-            approved: false,
-            moderationNote: '',
-            reviewedAt: null,
-            submittedAt: FieldValue.serverTimestamp(),
-            updatedAt: FieldValue.serverTimestamp(),
-          },
-          { merge: true }
-        );
+        const upsertPayload: Record<string, unknown> = {
+          ...record,
+          id: primaryDocument.id,
+          status: 'pending',
+          approved: false,
+          moderationNote: '',
+          reviewedAt: null,
+          submittedAt: FieldValue.serverTimestamp(),
+          updatedAt: FieldValue.serverTimestamp(),
+        };
+        if (upsertPayload.helperCategory === undefined) delete upsertPayload.helperCategory;
+        await primaryDocument.ref.set(upsertPayload, { merge: true });
 
         const updatedDocument = await primaryDocument.ref.get();
         if (updatedDocument.exists) {
@@ -472,12 +475,14 @@ export async function createListing(input: ListingInput): Promise<ListingRecord>
       }
     }
 
-    await collectionReference.doc(record.id).set({
+    const firestorePayload: Record<string, unknown> = {
       ...record,
       submittedAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),
       reviewedAt: null,
-    });
+    };
+    if (firestorePayload.helperCategory === undefined) delete firestorePayload.helperCategory;
+    await collectionReference.doc(record.id).set(firestorePayload);
 
     const savedDocument = await collectionReference.doc(record.id).get();
     if (!savedDocument.exists) {
@@ -486,12 +491,12 @@ export async function createListing(input: ListingInput): Promise<ListingRecord>
 
     return normalizeRecord(savedDocument.id, savedDocument.data() as Partial<ListingRecord>);
   } catch (error) {
-    console.error('Falling back to local submission store after Firestore write failed.', error);
-    assertWritablePersistentStore('Creating listings');
-    const items = await readFileStore();
-    items.unshift(record);
-    await writeFileStore(items);
-    return record;
+    console.error('Firestore write failed while creating listing.', error);
+    throw new Error(
+      error instanceof Error
+        ? `Unable to save submission to Firestore: ${error.message}`
+        : 'Unable to save submission to Firestore.'
+    );
   }
 }
 
@@ -502,7 +507,8 @@ export async function updateListingStatus(
   moderationNote: string
 ): Promise<ListingRecord> {
   const now = new Date().toISOString();
-  const helperValidityUntil = addDaysToIso(now, DEFAULT_HELPER_VALIDITY_DAYS);
+  const isHelperModule = moduleKey === 'helpers';
+  const validityDays = isHelperModule ? DEFAULT_HELPER_VALIDITY_DAYS : DEFAULT_LISTING_VALIDITY_DAYS;
 
   if (!isFirestoreConfigured()) {
     assertWritablePersistentStore('Updating moderation status');
@@ -514,7 +520,7 @@ export async function updateListingStatus(
     }
 
     const current = items[index]!;
-    const shouldAttachHelperValidity = current.moduleKey === 'helpers' && status === 'approved';
+    const shouldAttachValidity = status === 'approved';
 
     const updated: ListingRecord = {
       ...current,
@@ -523,9 +529,9 @@ export async function updateListingStatus(
       moderationNote: moderationNote.trim(),
       reviewedAt: now,
       updatedAt: now,
-      validFrom: shouldAttachHelperValidity ? now : current.validFrom,
-      validUntil: shouldAttachHelperValidity ? helperValidityUntil : current.validUntil,
-      lastRenewedAt: shouldAttachHelperValidity ? now : current.lastRenewedAt,
+      validFrom: shouldAttachValidity ? now : current.validFrom,
+      validUntil: shouldAttachValidity ? addDaysToIso(now, validityDays) : current.validUntil,
+      lastRenewedAt: shouldAttachValidity ? now : current.lastRenewedAt,
     };
 
     items[index] = updated;
@@ -543,9 +549,9 @@ export async function updateListingStatus(
       updatedAt: FieldValue.serverTimestamp(),
     };
 
-    if (moduleKey === 'helpers' && status === 'approved') {
+    if (status === 'approved') {
       updatePayload.validFrom = now;
-      updatePayload.validUntil = helperValidityUntil;
+      updatePayload.validUntil = addDaysToIso(now, validityDays);
       updatePayload.lastRenewedAt = now;
     }
 
@@ -568,7 +574,7 @@ export async function updateListingStatus(
     }
 
     const current = items[index]!;
-    const shouldAttachHelperValidity = current.moduleKey === 'helpers' && status === 'approved';
+    const shouldAttachValidity = status === 'approved';
 
     const updated: ListingRecord = {
       ...current,
@@ -577,9 +583,104 @@ export async function updateListingStatus(
       moderationNote: moderationNote.trim(),
       reviewedAt: now,
       updatedAt: now,
-      validFrom: shouldAttachHelperValidity ? now : current.validFrom,
-      validUntil: shouldAttachHelperValidity ? helperValidityUntil : current.validUntil,
-      lastRenewedAt: shouldAttachHelperValidity ? now : current.lastRenewedAt,
+      validFrom: shouldAttachValidity ? now : current.validFrom,
+      validUntil: shouldAttachValidity ? addDaysToIso(now, validityDays) : current.validUntil,
+      lastRenewedAt: shouldAttachValidity ? now : current.lastRenewedAt,
+    };
+
+    items[index] = updated;
+    await writeFileStore(items);
+    return updated;
+  }
+}
+
+export async function renewListingValidity(
+  moduleKey: DirectoryModuleKey,
+  id: string,
+  durationDays: number
+): Promise<ListingRecord> {
+  const days = Number.isInteger(durationDays) ? durationDays : 0;
+  if (days <= 0 || days > 365) {
+    throw new Error('Renewal duration must be between 1 and 365 days.');
+  }
+
+  const now = new Date().toISOString();
+  const validUntil = addDaysToIso(now, days);
+
+  if (!isFirestoreConfigured()) {
+    assertWritablePersistentStore('Renewing listing validity');
+    const items = await readFileStore();
+    const index = items.findIndex((item) => item.id === id && item.moduleKey === moduleKey);
+
+    if (index === -1) {
+      throw new Error('Listing not found.');
+    }
+
+    const current = items[index]!;
+    if (current.status !== 'approved') {
+      throw new Error('Only approved listings can be renewed.');
+    }
+
+    const updated: ListingRecord = {
+      ...current,
+      validFrom: now,
+      validUntil,
+      lastRenewedAt: now,
+      updatedAt: now,
+    };
+
+    items[index] = updated;
+    await writeFileStore(items);
+    return updated;
+  }
+
+  try {
+    const documentReference = getFirestoreAdmin().collection(getCollectionName(moduleKey)).doc(id);
+    const existing = await documentReference.get();
+
+    if (!existing.exists) {
+      throw new Error('Listing not found.');
+    }
+
+    const current = normalizeRecord(existing.id, existing.data() as Partial<ListingRecord>);
+    if (current.status !== 'approved') {
+      throw new Error('Only approved listings can be renewed.');
+    }
+
+    await documentReference.update({
+      validFrom: now,
+      validUntil,
+      lastRenewedAt: now,
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+
+    const snapshot = await documentReference.get();
+    if (!snapshot.exists) {
+      throw new Error('Listing not found.');
+    }
+
+    return normalizeRecord(snapshot.id, snapshot.data() as Partial<ListingRecord>);
+  } catch (error) {
+    console.error('Falling back to local submission store after listing renewal update failed.', error);
+    assertWritablePersistentStore('Renewing listing validity');
+    const items = await readFileStore();
+    const index = items.findIndex((item) => item.id === id && item.moduleKey === moduleKey);
+
+    if (index === -1) {
+      throw new Error('Listing not found.');
+    }
+
+    const current = items[index]!;
+    if (current.status !== 'approved') {
+      throw new Error('Only approved listings can be renewed.');
+    }
+
+    const updated: ListingRecord = {
+      ...current,
+      validFrom: now,
+      validUntil,
+      lastRenewedAt: now,
+      updatedAt: now,
     };
 
     items[index] = updated;
@@ -751,6 +852,102 @@ export async function incrementHelperPhoneClick(id: string): Promise<ListingReco
       ...current,
       phoneClickCount: current.phoneClickCount + 1,
       lastPhoneClickAt: now,
+      updatedAt: now,
+    };
+
+    items[index] = updated;
+    await writeFileStore(items);
+    return updated;
+  }
+}
+
+export async function updateListingAvailability(
+  moduleKey: DirectoryModuleKey,
+  id: string,
+  email: string,
+  availability: Record<string, 'available' | 'booked'>
+): Promise<ListingRecord> {
+  const now = new Date().toISOString();
+
+  if (!isFirestoreConfigured()) {
+    assertWritablePersistentStore('Updating listing availability');
+    const items = await readFileStore();
+    const index = items.findIndex((item) => item.id === id && item.moduleKey === moduleKey);
+
+    if (index === -1) {
+      throw new Error('Listing not found.');
+    }
+
+    const current = items[index]!;
+    if (current.email.toLowerCase() !== email.toLowerCase()) {
+      throw new Error('You do not have permission to update this listing.');
+    }
+
+    if (!current.approved) {
+      throw new Error('Only approved listings can have availability updates.');
+    }
+
+    const updated: ListingRecord = {
+      ...current,
+      availability,
+      updatedAt: now,
+    };
+
+    items[index] = updated;
+    await writeFileStore(items);
+    return updated;
+  }
+
+  try {
+    const documentReference = getFirestoreAdmin().collection(getCollectionName(moduleKey)).doc(id);
+    const existing = await documentReference.get();
+
+    if (!existing.exists) {
+      throw new Error('Listing not found.');
+    }
+
+    const current = normalizeRecord(existing.id, existing.data() as Partial<ListingRecord>);
+    if (current.email.toLowerCase() !== email.toLowerCase()) {
+      throw new Error('You do not have permission to update this listing.');
+    }
+
+    if (!current.approved) {
+      throw new Error('Only approved listings can have availability updates.');
+    }
+
+    await documentReference.update({
+      availability,
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+
+    const snapshot = await documentReference.get();
+    if (!snapshot.exists) {
+      throw new Error('Listing not found.');
+    }
+
+    return normalizeRecord(snapshot.id, snapshot.data() as Partial<ListingRecord>);
+  } catch (error) {
+    console.error('Falling back to local submission store after availability update failed.', error);
+    assertWritablePersistentStore('Updating listing availability');
+    const items = await readFileStore();
+    const index = items.findIndex((item) => item.id === id && item.moduleKey === moduleKey);
+
+    if (index === -1) {
+      throw new Error('Listing not found.');
+    }
+
+    const current = items[index]!;
+    if (current.email.toLowerCase() !== email.toLowerCase()) {
+      throw new Error('You do not have permission to update this listing.');
+    }
+
+    if (!current.approved) {
+      throw new Error('Only approved listings can have availability updates.');
+    }
+
+    const updated: ListingRecord = {
+      ...current,
+      availability,
       updatedAt: now,
     };
 

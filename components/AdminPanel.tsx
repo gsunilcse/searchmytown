@@ -82,7 +82,7 @@ function formatAdminTimestamp(value: string) {
 }
 
 function getHelperExpiryState(listing: ListingRecord) {
-  if (listing.moduleKey !== 'helpers' || listing.status !== 'approved') {
+  if (listing.status !== 'approved') {
     return { expired: false, expiresAt: listing.validUntil };
   }
 
@@ -111,7 +111,7 @@ async function renewHelperSubmission(id: string, renewalDays: number) {
   const response = await fetch(`/api/admin/submissions/${id}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ moduleKey: 'helpers', action: 'renew', renewalDays }),
+    body: JSON.stringify({ action: 'renew', renewalDays }),
   });
   const data = (await response.json()) as { error?: string; record?: ListingRecord };
   if (!response.ok || !data.record) throw new Error(data.error ?? 'Unable to renew helper listing.');
@@ -165,7 +165,7 @@ export default function AdminPanel({
   const [adminAccessRequests, setAdminAccessRequests] = useState(initialAdminAccessRequests);
   const [articles, setArticles] = useState(initialArticles);
   const [busyArticleId, setBusyArticleId] = useState<string | null>(null);
-  const [statusFilter, setStatusFilter] = useState<'all' | SubmissionStatus | 'expired-helpers'>('pending');
+  const [statusFilter, setStatusFilter] = useState<'all' | SubmissionStatus | 'expired'>('pending');
   const [moduleFilter, setModuleFilter] = useState<'all' | DirectoryModuleKey>('all');
   const [townFilter, setTownFilter] = useState<'all' | string>('all');
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -189,8 +189,8 @@ export default function AdminPanel({
 
   const filteredListings = useMemo(() => {
     return listings.filter(l => {
-      if (statusFilter === 'expired-helpers') {
-        return l.moduleKey === 'helpers' && l.status === 'approved' && getHelperExpiryState(l).expired;
+      if (statusFilter === 'expired') {
+        return l.status === 'approved' && getHelperExpiryState(l).expired;
       }
 
       if (statusFilter !== 'all' && l.status !== statusFilter) return false;
@@ -260,7 +260,20 @@ export default function AdminPanel({
     }
   }
 
-  async function handleHelperRenew(id: string, renewalDays: number) {
+  function getRenewalOptionsForModule(moduleKey: string): Array<{ days: number; label: string }> {
+    if (moduleKey === 'helpers') {
+      return [
+        { days: 30, label: 'Renew 30 Days' },
+        { days: 60, label: 'Renew 60 Days' },
+      ];
+    }
+    return [
+      { days: 90, label: 'Renew 90 Days' },
+      { days: 180, label: 'Renew 180 Days' },
+    ];
+  }
+
+  async function handleRenewListing(id: string, renewalDays: number) {
     setBusyRenewId(id);
     setErrorMessage(null);
     setSuccessMessage(null);
@@ -384,7 +397,7 @@ export default function AdminPanel({
               { val: 'pending', lab: 'Pending', icon: Clock },
               { val: 'approved', lab: 'Approved', icon: CheckCircle2 },
               { val: 'rejected', lab: 'Rejected', icon: XCircle },
-              { val: 'expired-helpers', lab: 'Expired Helpers', icon: AlertCircle },
+              { val: 'expired', lab: 'Expired Listings', icon: AlertCircle },
               { val: 'all', lab: 'History', icon: Filter }
             ].map(f => (
               <button 
@@ -487,22 +500,18 @@ export default function AdminPanel({
                           <div className="text-[10px] font-bold uppercase text-zinc-500">Moderated On</div>
                           <div className="mt-1 text-xs text-zinc-300">{formatAdminTimestamp(l.reviewedAt ?? l.submittedAt)}</div>
                         </div>
-                        {l.moduleKey === 'helpers' && l.status === 'approved' && (
+                        {l.status === 'approved' && (
                           <>
-                            <button
-                              onClick={() => void handleHelperRenew(l.id, 30)}
-                              disabled={busyRenewId === l.id}
-                              className="w-full py-3 rounded-2xl bg-blue-500/15 border border-blue-400/20 text-blue-200 font-bold text-xs hover:bg-blue-500/25 transition-all"
-                            >
-                              Renew 30 Days
-                            </button>
-                            <button
-                              onClick={() => void handleHelperRenew(l.id, 60)}
-                              disabled={busyRenewId === l.id}
-                              className="w-full py-3 rounded-2xl bg-indigo-500/15 border border-indigo-400/20 text-indigo-200 font-bold text-xs hover:bg-indigo-500/25 transition-all"
-                            >
-                              Renew 60 Days
-                            </button>
+                            {getRenewalOptionsForModule(l.moduleKey).map(opt => (
+                              <button
+                                key={opt.days}
+                                onClick={() => void handleRenewListing(l.id, opt.days)}
+                                disabled={busyRenewId === l.id}
+                                className="w-full py-3 rounded-2xl bg-blue-500/15 border border-blue-400/20 text-blue-200 font-bold text-xs hover:bg-blue-500/25 transition-all"
+                              >
+                                {opt.label}
+                              </button>
+                            ))}
                           </>
                         )}
                       </>
@@ -689,4 +698,4 @@ export default function AdminPanel({
   );
 }
 
-type ModerationStatus = 'pending' | 'approved' | 'rejected' | 'expired-helpers' | 'all';
+type ModerationStatus = 'pending' | 'approved' | 'rejected' | 'expired' | 'all';

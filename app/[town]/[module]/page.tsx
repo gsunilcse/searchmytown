@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import dynamic from 'next/dynamic';
 import { 
   HELPER_CATEGORY_DEFINITIONS,
   getModuleDefinition, 
@@ -12,7 +13,9 @@ import { fetchLiveMoviesByTownName, getBookMyShowMoviesUrlByTownName } from '@/l
 import { buildModuleMetadata, getModuleJsonLd, getModuleSeoContent } from '@/lib/seo';
 import { getApprovedListings } from '@/lib/submissions';
 import { getEnabledTownById } from '@/lib/town-settings';
+import { getListingExpiryState } from '@/lib/submissions';
 import HelperPhoneLink from '@/components/HelperPhoneLink';
+import AvailabilitySection from '@/components/AvailabilitySection';
 import { 
   ChevronRight, 
   ArrowLeft, 
@@ -78,6 +81,7 @@ export default async function ModulePage({ params }: ModulePageProps) {
   }
 
   const listings = await getApprovedListings(selectedTown.id, module);
+    const activeListings = listings.filter(l => !getListingExpiryState(l).expired);
   const viewer = await getAppViewer();
   const seoContent = getModuleSeoContent(selectedTown, moduleDefinition);
   const moduleJsonLd = getModuleJsonLd(selectedTown, moduleDefinition, listings);
@@ -87,7 +91,7 @@ export default async function ModulePage({ params }: ModulePageProps) {
   const helperListingsByCategory = isHelpersModule
     ? HELPER_CATEGORY_DEFINITIONS.map((category) => ({
         category,
-        items: listings
+        items: activeListings
           .filter((listing) => {
             const listingCategory = getHelperCategoryLabel(listing);
             return listingCategory === category.label && Boolean(listing.phone.trim());
@@ -248,7 +252,7 @@ export default async function ModulePage({ params }: ModulePageProps) {
         )}
 
         {!isMoviesModule && !isHelpersModule &&
-          listings.map((listing) => (
+          activeListings.map((listing) => (
             <article id={listing.id} key={listing.id} className="premium-card group hover:scale-[1.02] transition-all duration-300">
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-3 text-sm font-bold uppercase tracking-widest text-zinc-500">
@@ -294,6 +298,15 @@ export default async function ModulePage({ params }: ModulePageProps) {
                   </div>
                 )}
               </div>
+
+              {moduleDefinition.hasAvailability && (
+                <AvailabilitySection
+                  availability={listing.availability}
+                  isOwner={!!viewer.email && viewer.email === listing.submittedByEmail}
+                  listingId={listing.id}
+                  moduleKey={moduleDefinition.key}
+                />
+              )}
             </article>
           ))}
 

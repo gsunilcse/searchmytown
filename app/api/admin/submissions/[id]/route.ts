@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { isDirectoryModuleKey } from '@/config/modules';
 import { canAccessAdmin, canModerateTown, getAppViewer } from '@/lib/auth';
-import { getListingById, renewHelperListingValidity, updateListingStatus } from '@/lib/submissions';
+import { getListingById, renewListingValidity, updateListingStatus } from '@/lib/submissions';
 
 export const runtime = 'nodejs';
 
@@ -42,16 +42,13 @@ export async function PATCH(request: Request, context: RouteContext<'/api/admin/
     }
 
     if (body.action === 'renew') {
-      if (body.moduleKey !== 'helpers') {
-        return NextResponse.json({ error: 'Renewal is only available for helper listings.' }, { status: 400 });
-      }
 
       const renewalDays = Number.isInteger(body.renewalDays) ? Number(body.renewalDays) : 0;
       if (renewalDays <= 0) {
         return NextResponse.json({ error: 'Provide a valid renewal duration in days.' }, { status: 400 });
       }
 
-      const record = await renewHelperListingValidity(id, renewalDays);
+  const record = await renewListingValidity(body.moduleKey, id, renewalDays);
       return NextResponse.json({ record });
     }
 

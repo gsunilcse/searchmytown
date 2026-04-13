@@ -97,11 +97,13 @@ function PremiumSelect({
   onChange,
   options,
   label,
+  disabled = false,
 }: {
   value: string;
   onChange: (value: string) => void;
   options: string[];
   label: string;
+  disabled?: boolean;
 }) {
   const [isOpen, setIsOpen] = useState(false);
 
@@ -111,9 +113,13 @@ function PremiumSelect({
       <div className="relative">
         <button
           type="button"
-          onClick={() => setIsOpen((currentValue) => !currentValue)}
+          disabled={disabled}
+          onClick={() => {
+            if (disabled) return;
+            setIsOpen((currentValue) => !currentValue);
+          }}
           className={cn(
-            'w-full flex items-center justify-between gap-3 rounded-2xl border bg-zinc-950/50 py-4 px-4 text-sm text-white text-left transition-all',
+            'w-full flex items-center justify-between gap-3 rounded-2xl border bg-zinc-950/50 py-4 px-4 text-sm text-white text-left transition-all disabled:cursor-not-allowed disabled:opacity-60',
             isOpen ? 'border-emerald-500 ring-2 ring-emerald-500/10' : 'border-white/5 hover:border-white/10'
           )}
         >
@@ -168,6 +174,7 @@ export default function PublishForm({ town, moduleDefinition }: PublishFormProps
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const isMoviesModule = moduleDefinition.key === 'movies';
   const isHelpersModule = moduleDefinition.key === 'helpers';
+  const isLocked = isSubmitting || Boolean(successMessage);
 
   function updateField(field: keyof FormState, value: string) {
     setFormState((currentValue) => ({
@@ -189,7 +196,6 @@ export default function PublishForm({ town, moduleDefinition }: PublishFormProps
 
     try {
       await submitListing(town.id, moduleDefinition.key, formState);
-      setFormState(INITIAL_FORM_STATE);
       setSuccessMessage(
         isMoviesModule
           ? 'Movie schedule submitted. Your latest entry replaced the previous one and is now pending admin approval.'
@@ -217,9 +223,10 @@ export default function PublishForm({ town, moduleDefinition }: PublishFormProps
           <span>Publish to {town.name}</span>
         </div>
 
-        <div className="grid gap-6 md:grid-cols-2">
-          {/* Title and Summary */}
-          <div className="md:col-span-2 space-y-6">
+        <fieldset disabled={isLocked} className="space-y-8">
+          <div className="grid gap-6 md:grid-cols-2">
+            {/* Title and Summary */}
+            <div className="md:col-span-2 space-y-6">
             <div className="space-y-2">
               <label className="text-xs font-bold uppercase tracking-widest text-zinc-500 ml-1">
                 {isMoviesModule ? 'Theatre Name' : 'Listing Title'}
@@ -297,6 +304,7 @@ export default function PublishForm({ town, moduleDefinition }: PublishFormProps
                 onChange={(value) => updateField('helperCategory', value)}
                 options={HELPER_CATEGORY_LABELS}
                 label="Helper Category"
+                disabled={isLocked}
               />
             )}
           </div>
@@ -390,26 +398,27 @@ export default function PublishForm({ town, moduleDefinition }: PublishFormProps
             </div>
           </div>
 
-          {/* Location */}
-          <div className="md:col-span-2 space-y-2">
-            <label className="text-xs font-bold uppercase tracking-widest text-zinc-500 ml-1">Exact Address</label>
-            <div className="relative">
-              <MapPin className="absolute left-4 top-4 h-5 w-5 text-zinc-600" />
-              <textarea
-                rows={3}
-                value={formState.address}
-                onChange={(event) => updateField('address', event.target.value)}
-                placeholder={`Street, area, and prominent landmarks in ${town.name}`}
-                className="w-full rounded-2xl border border-white/5 bg-zinc-950/50 py-4 pl-12 pr-4 text-sm text-white focus:border-emerald-500 outline-none transition-all resize-none"
-              />
+            {/* Location */}
+            <div className="md:col-span-2 space-y-2">
+              <label className="text-xs font-bold uppercase tracking-widest text-zinc-500 ml-1">Exact Address</label>
+              <div className="relative">
+                <MapPin className="absolute left-4 top-4 h-5 w-5 text-zinc-600" />
+                <textarea
+                  rows={3}
+                  value={formState.address}
+                  onChange={(event) => updateField('address', event.target.value)}
+                  placeholder={`Street, area, and prominent landmarks in ${town.name}`}
+                  className="w-full rounded-2xl border border-white/5 bg-zinc-950/50 py-4 pl-12 pr-4 text-sm text-white focus:border-emerald-500 outline-none transition-all resize-none"
+                />
+              </div>
             </div>
           </div>
-        </div>
 
-        <div className="mt-8 p-6 rounded-2xl bg-white/5 border border-white/10 text-xs text-zinc-500 flex items-center gap-4 leading-relaxed">
-          <CheckCircle2 className="h-6 w-6 text-emerald-500/50 shrink-0" />
-          <span>Professional verification required. Your submission will undergo moderation prior to public distribution in the {town.name} council directory.</span>
-        </div>
+          <div className="mt-8 p-6 rounded-2xl bg-white/5 border border-white/10 text-xs text-zinc-500 flex items-center gap-4 leading-relaxed">
+            <CheckCircle2 className="h-6 w-6 text-emerald-500/50 shrink-0" />
+            <span>Professional verification required. Your submission will undergo moderation prior to public distribution in the {town.name} council directory.</span>
+          </div>
+        </fieldset>
 
         <AnimatePresence>
           {errorMessage && (
@@ -435,11 +444,16 @@ export default function PublishForm({ town, moduleDefinition }: PublishFormProps
 
         <button
           type="submit"
-          disabled={isSubmitting}
-          className="w-full mt-6 group flex items-center justify-center gap-3 rounded-2xl bg-white px-8 py-5 text-sm font-bold text-zinc-950 transition-all hover:bg-zinc-200 hover:scale-[1.02] disabled:opacity-50"
+          disabled={isLocked}
+          className="w-full mt-6 group flex items-center justify-center gap-3 rounded-2xl bg-white px-8 py-5 text-sm font-bold text-zinc-950 transition-all hover:bg-zinc-200 hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {isSubmitting ? (
             <Loader2 className="h-5 w-5 animate-spin" />
+          ) : successMessage ? (
+            <>
+              Submitted
+              <CheckCircle2 className="h-4 w-4" />
+            </>
           ) : (
             <>
               {moduleDefinition.submitButtonLabel}
