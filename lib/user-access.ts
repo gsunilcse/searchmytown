@@ -392,6 +392,10 @@ async function applyApprovedRequest(request: SignupRequestRecord): Promise<Regis
   const townAdminTownIds = new Set(existingUser?.townAdminTownIds ?? []);
 
   if (request.requestedRole === 'townadmin' && request.townId) {
+    const currentAdmin = await getTownAdminForTown(request.townId);
+    if (currentAdmin && currentAdmin.email !== normalizeEmail(request.email)) {
+      throw new Error(`Cannot approve: ${request.townId} already has a town admin (${currentAdmin.email}). Remove the current admin first.`);
+    }
     townAdminTownIds.add(request.townId);
   }
 
@@ -409,6 +413,34 @@ export async function getRegisteredUserByEmail(email: string): Promise<Registere
   const normalizedEmail = normalizeEmail(email);
   const users = await getUsersWithFallback();
   return users.find((item) => item.email === normalizedEmail) ?? null;
+}
+
+export async function getTownAdminForTown(townId: string): Promise<RegisteredUserRecord | null> {
+  const users = await getUsersWithFallback();
+  return users.find((user) => user.townAdminTownIds.includes(townId)) ?? null;
+}
+
+export async function removeTownAdmin(townId: string, adminEmail: string): Promise<void> {
+  const normalizedEmail = normalizeEmail(adminEmail);
+  const user = await getRegisteredUserByEmail(normalizedEmail);
+  if (!user) {
+    throw new Error('User not found.');
+  }
+
+  if (!user.townAdminTownIds.includes(townId)) {
+    throw new Error('This user is not a town admin for the specified town.');
+  }
+
+  const updatedTownAdminTownIds = user.townAdminTownIds.filter((id) => id !== townId);
+
+  await upsertRegisteredUser({
+    email: normalizedEmail,
+    name: user.name,
+    mobile: user.mobile,
+    publisherTownIds: user.publisherTownIds,
+    townAdminTownIds: updatedTownAdminTownIds,
+    superAdminApproved: user.superAdminApproved,
+  });
 }
 
 export async function getAllSignupRequests(): Promise<SignupRequestRecord[]> {
@@ -471,8 +503,15 @@ export async function createSignupRequest(input: SignupInput): Promise<SignupRes
     };
   }
 
-  if (requestedRole === 'townadmin' && town && existingUser?.townAdminTownIds.includes(town.id)) {
-    throw new Error(`Townadmin access is already active for ${town.name}.`);
+  if (requestedRole === 'townadmin' && town) {
+    if (existingUser?.townAdminTownIds.includes(town.id)) {
+      throw new Error(`Townadmin access is already active for ${town.name}.`);
+    }
+
+    const currentAdmin = await getTownAdminForTown(town.id);
+    if (currentAdmin) {
+      throw new Error(`${town.name} already has a town admin (${currentAdmin.email}). The super admin must remove the current admin before a new one can sign up.`);
+    }
   }
 
   const duplicatePending = existingRequests.find(

@@ -1,7 +1,7 @@
 'use client';
 
 import { signOut } from 'next-auth/react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   ShieldCheck, 
@@ -174,6 +174,23 @@ export default function AdminPanel({
   const [busyRenewId, setBusyRenewId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [townAdmins, setTownAdmins] = useState<Record<string, { email: string; name: string } | null>>({});
+  const [busyRemoveTownId, setBusyRemoveTownId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isSuperAdmin) return;
+    towns.forEach(async (town) => {
+      try {
+        const response = await fetch(`/api/admin/town-admin?townId=${encodeURIComponent(town.id)}`);
+        if (response.ok) {
+          const data = (await response.json()) as { admin: { email: string; name: string } | null };
+          setTownAdmins((prev) => ({ ...prev, [town.id]: data.admin }));
+        }
+      } catch {
+        // ignore fetch errors for individual towns
+      }
+    });
+  }, [isSuperAdmin, towns]);
 
   const summary = useMemo(() => {
     return listings.reduce((acc, l) => {
@@ -242,6 +259,27 @@ export default function AdminPanel({
       setErrorMessage('Access review failed.');
     } finally {
       setBusyAccessRequestId(null);
+    }
+  }
+
+  async function handleRemoveTownAdmin(townId: string, adminEmail: string) {
+    setBusyRemoveTownId(townId);
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    try {
+      const response = await fetch('/api/admin/town-admin', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ townId, adminEmail }),
+      });
+      const data = (await response.json()) as { error?: string };
+      if (!response.ok) throw new Error(data.error ?? 'Unable to remove town admin.');
+      setTownAdmins((prev) => ({ ...prev, [townId]: null }));
+      setSuccessMessage(`Town admin ${adminEmail} removed from ${townId}.`);
+    } catch (e) {
+      setErrorMessage(e instanceof Error ? e.message : 'Failed to remove town admin.');
+    } finally {
+      setBusyRemoveTownId(null);
     }
   }
 
@@ -691,6 +729,51 @@ export default function AdminPanel({
                 </div>
               </div>
             ))}
+          </div>
+        </section>
+      )}
+
+      {/* Town Admin Management */}
+      {isSuperAdmin && (
+        <section className="premium-card p-8 sm:p-12">
+          <div className="flex items-center gap-3 text-emerald-500">
+            <ShieldCheck className="h-5 w-5" />
+            <h2 className="text-xl font-bold">Town Admins</h2>
+          </div>
+          <p className="mt-2 text-sm text-zinc-400">Each town can have only one admin. Remove the current admin to allow a new signup.</p>
+
+          <div className="mt-8 space-y-4">
+            {towns.map((town) => {
+              const admin = townAdmins[town.id];
+              const isLoading = !(town.id in townAdmins);
+
+              return (
+                <div key={town.id} className="bg-white/5 border border-white/5 rounded-2xl p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                  <div>
+                    <h4 className="text-lg font-bold text-white">{town.name}</h4>
+                    {isLoading ? (
+                      <p className="text-xs text-zinc-500 mt-1">Loading...</p>
+                    ) : admin ? (
+                      <p className="text-sm text-zinc-400 mt-1">
+                        Admin: <span className="font-semibold text-zinc-300">{admin.name || admin.email}</span>
+                        {admin.name && <span className="text-zinc-500"> ({admin.email})</span>}
+                      </p>
+                    ) : (
+                      <p className="text-sm text-zinc-500 mt-1 italic">No admin assigned</p>
+                    )}
+                  </div>
+                  {admin && (
+                    <button
+                      onClick={() => handleRemoveTownAdmin(town.id, admin.email)}
+                      disabled={busyRemoveTownId === town.id}
+                      className="shrink-0 px-5 py-2.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-bold hover:bg-red-500/20 transition disabled:opacity-40"
+                    >
+                      {busyRemoveTownId === town.id ? 'Removing...' : 'Remove Admin'}
+                    </button>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </section>
       )}
