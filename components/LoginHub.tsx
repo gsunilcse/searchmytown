@@ -668,10 +668,10 @@ export default function LoginHub({
 
                 <button 
                   type="submit" 
-                  disabled={isSubmittingSignup} 
+                  disabled={isSubmittingSignup || !!signupMessage} 
                   className="w-full flex items-center justify-center gap-3 rounded-2xl bg-emerald-500 px-8 py-4 text-sm font-bold text-zinc-950 transition-all hover:bg-emerald-400 disabled:opacity-50"
                 >
-                  {isSubmittingSignup ? 'Processing Request...' : 'Submit Credentials'}
+                  {isSubmittingSignup ? 'Processing Request...' : signupMessage ? 'Submitted' : 'Submit Credentials'}
                 </button>
               </form>
 
