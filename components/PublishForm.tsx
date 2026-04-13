@@ -35,6 +35,7 @@ type FormState = {
   helperCategory: string;
   description: string;
   contactName: string;
+  helperLocality: string;
   phone: string;
   email: string;
   address: string;
@@ -50,6 +51,7 @@ const INITIAL_FORM_STATE: FormState = {
   helperCategory: '',
   description: '',
   contactName: '',
+  helperLocality: '',
   phone: '',
   email: '',
   address: '',
@@ -344,6 +346,22 @@ export default function PublishForm({ town, moduleDefinition }: PublishFormProps
               />
             </div>
           </div>
+
+          {isHelpersModule && (
+            <div className="space-y-2">
+              <label className="text-xs font-bold uppercase tracking-widest text-zinc-500 ml-1">Village / Locality</label>
+              <div className="relative">
+                <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-600" />
+                <input
+                  required
+                  value={formState.helperLocality}
+                  onChange={(event) => updateField('helperLocality', event.target.value)}
+                  placeholder={`Village or locality in ${town.name}`}
+                  className="w-full rounded-2xl border border-white/5 bg-zinc-950/50 py-4 pl-12 pr-4 text-sm text-white focus:border-emerald-500 outline-none transition-all"
+                />
+              </div>
+            </div>
+          )}
 
           <div className="space-y-2">
             <label className="text-xs font-bold uppercase tracking-widest text-zinc-500 ml-1">Email Connection</label>

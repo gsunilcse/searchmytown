@@ -1,4 +1,4 @@
-import 'server-only';
+﻿import 'server-only';
 
 import { readFile, writeFile } from 'fs/promises';
 import {
@@ -31,11 +31,17 @@ export type ListingRecord = {
   address: string;
   website: string;
   helperCategory?: HelperCategory;
+  helperLocality: string;
+  phoneClickCount: number;
+  lastPhoneClickAt: string | null;
   submittedByEmail: string;
   submittedByName: string;
   submittedAt: string;
   updatedAt: string;
   reviewedAt: string | null;
+  validFrom: string | null;
+  validUntil: string | null;
+  lastRenewedAt: string | null;
   moderationNote: string;
 };
 
@@ -51,11 +57,13 @@ export type ListingInput = {
   address: string;
   website: string;
   helperCategory?: string;
+  helperLocality?: string;
   submittedByEmail: string;
   submittedByName: string;
 };
 
 const DATA_FILE_PATH = path.join(process.cwd(), 'data', 'town-submissions.json');
+const DEFAULT_HELPER_VALIDITY_DAYS = 30;
 
 function canUseLocalMutableFallback(): boolean {
   return process.env.NODE_ENV !== 'production';
@@ -83,6 +91,30 @@ function toIsoString(value: unknown): string {
   return new Date().toISOString();
 }
 
+function addDaysToIso(baseIso: string, days: number): string {
+  const date = new Date(baseIso);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString();
+}
+
+export function getListingExpiryState(record: ListingRecord, nowIso = new Date().toISOString()): {
+  expired: boolean;
+  expiresAt: string | null;
+} {
+  if (record.moduleKey !== 'helpers' || record.status !== 'approved') {
+    return { expired: false, expiresAt: record.validUntil };
+  }
+
+  if (!record.validUntil) {
+    return { expired: true, expiresAt: null };
+  }
+
+  return {
+    expired: new Date(record.validUntil).getTime() <= new Date(nowIso).getTime(),
+    expiresAt: record.validUntil,
+  };
+}
+
 function normalizeRecord(id: string, raw: Partial<ListingRecord>): ListingRecord {
   const status = raw.status ?? 'pending';
   const approved = typeof raw.approved === 'boolean' ? raw.approved : status === 'approved';
@@ -103,11 +135,17 @@ function normalizeRecord(id: string, raw: Partial<ListingRecord>): ListingRecord
     address: raw.address ?? '',
     website: raw.website ?? '',
     helperCategory: raw.helperCategory,
+    helperLocality: raw.helperLocality ?? '',
+    phoneClickCount: typeof raw.phoneClickCount === 'number' ? raw.phoneClickCount : 0,
+    lastPhoneClickAt: raw.lastPhoneClickAt ? toIsoString(raw.lastPhoneClickAt) : null,
     submittedByEmail: raw.submittedByEmail?.trim().toLowerCase() ?? '',
     submittedByName: raw.submittedByName ?? '',
     submittedAt: toIsoString(raw.submittedAt),
     updatedAt: toIsoString(raw.updatedAt),
     reviewedAt: raw.reviewedAt ? toIsoString(raw.reviewedAt) : null,
+    validFrom: raw.validFrom ? toIsoString(raw.validFrom) : null,
+    validUntil: raw.validUntil ? toIsoString(raw.validUntil) : null,
+    lastRenewedAt: raw.lastRenewedAt ? toIsoString(raw.lastRenewedAt) : null,
     moderationNote: raw.moderationNote ?? '',
   };
 }
@@ -210,7 +248,17 @@ async function getFirestoreApprovedListingsByTown(
 
   return snapshot.docs
     .map(normalizeFirestoreDocument)
-    .filter((item) => item.approved)
+    .filter((item) => {
+      if (!item.approved) {
+        return false;
+      }
+
+      if (item.moduleKey !== 'helpers') {
+        return true;
+      }
+
+      return !getListingExpiryState(item).expired;
+    })
     .sort((left, right) => right.submittedAt.localeCompare(left.submittedAt));
 }
 
@@ -243,7 +291,17 @@ export async function getApprovedListings(townId: string, moduleKey: DirectoryMo
   const allItems = await getListingsWithFallback();
 
   return allItems
-    .filter((item) => item.townId === townId && item.moduleKey === moduleKey && item.approved)
+    .filter((item) => {
+      if (!(item.townId === townId && item.moduleKey === moduleKey && item.approved)) {
+        return false;
+      }
+
+      if (item.moduleKey !== 'helpers') {
+        return true;
+      }
+
+      return !getListingExpiryState(item).expired;
+    })
     .sort((left, right) => right.submittedAt.localeCompare(left.submittedAt));
 }
 
@@ -299,11 +357,17 @@ export async function createListing(input: ListingInput): Promise<ListingRecord>
     helperCategory: input.moduleKey === 'helpers' && input.helperCategory && isHelperCategory(input.helperCategory)
       ? input.helperCategory
       : undefined,
+    helperLocality: input.moduleKey === 'helpers' ? (input.helperLocality ?? '').trim() : '',
+    phoneClickCount: 0,
+    lastPhoneClickAt: null,
     submittedByEmail: normalizedSubmittedByEmail,
     submittedByName: input.submittedByName.trim(),
     submittedAt: now,
     updatedAt: now,
     reviewedAt: null,
+    validFrom: null,
+    validUntil: null,
+    lastRenewedAt: null,
     moderationNote: '',
   };
 
@@ -335,10 +399,16 @@ export async function createListing(input: ListingInput): Promise<ListingRecord>
           address: record.address,
           website: record.website,
           helperCategory: record.helperCategory,
+          helperLocality: record.helperLocality,
+          phoneClickCount: 0,
+          lastPhoneClickAt: null,
           submittedByName: record.submittedByName,
           status: 'pending',
           approved: false,
           reviewedAt: null,
+          validFrom: null,
+          validUntil: null,
+          lastRenewedAt: null,
           moderationNote: '',
           updatedAt: now,
           submittedAt: now,
@@ -431,6 +501,9 @@ export async function updateListingStatus(
   status: Exclude<SubmissionStatus, 'pending'>,
   moderationNote: string
 ): Promise<ListingRecord> {
+  const now = new Date().toISOString();
+  const helperValidityUntil = addDaysToIso(now, DEFAULT_HELPER_VALIDITY_DAYS);
+
   if (!isFirestoreConfigured()) {
     assertWritablePersistentStore('Updating moderation status');
     const items = await readFileStore();
@@ -441,13 +514,18 @@ export async function updateListingStatus(
     }
 
     const current = items[index]!;
+    const shouldAttachHelperValidity = current.moduleKey === 'helpers' && status === 'approved';
+
     const updated: ListingRecord = {
       ...current,
       status,
       approved: status === 'approved',
       moderationNote: moderationNote.trim(),
-      reviewedAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      reviewedAt: now,
+      updatedAt: now,
+      validFrom: shouldAttachHelperValidity ? now : current.validFrom,
+      validUntil: shouldAttachHelperValidity ? helperValidityUntil : current.validUntil,
+      lastRenewedAt: shouldAttachHelperValidity ? now : current.lastRenewedAt,
     };
 
     items[index] = updated;
@@ -457,13 +535,21 @@ export async function updateListingStatus(
 
   try {
     const documentReference = getFirestoreAdmin().collection(getCollectionName(moduleKey)).doc(id);
-    await documentReference.update({
+    const updatePayload: Record<string, unknown> = {
       status,
       approved: status === 'approved',
       moderationNote: moderationNote.trim(),
       reviewedAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),
-    });
+    };
+
+    if (moduleKey === 'helpers' && status === 'approved') {
+      updatePayload.validFrom = now;
+      updatePayload.validUntil = helperValidityUntil;
+      updatePayload.lastRenewedAt = now;
+    }
+
+    await documentReference.update(updatePayload);
 
     const snapshot = await documentReference.get();
     if (!snapshot.exists) {
@@ -482,13 +568,18 @@ export async function updateListingStatus(
     }
 
     const current = items[index]!;
+    const shouldAttachHelperValidity = current.moduleKey === 'helpers' && status === 'approved';
+
     const updated: ListingRecord = {
       ...current,
       status,
       approved: status === 'approved',
       moderationNote: moderationNote.trim(),
-      reviewedAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      reviewedAt: now,
+      updatedAt: now,
+      validFrom: shouldAttachHelperValidity ? now : current.validFrom,
+      validUntil: shouldAttachHelperValidity ? helperValidityUntil : current.validUntil,
+      lastRenewedAt: shouldAttachHelperValidity ? now : current.lastRenewedAt,
     };
 
     items[index] = updated;
@@ -496,3 +587,176 @@ export async function updateListingStatus(
     return updated;
   }
 }
+export async function renewHelperListingValidity(id: string, durationDays: number): Promise<ListingRecord> {
+  const days = Number.isInteger(durationDays) ? durationDays : 0;
+  if (days <= 0 || days > 365) {
+    throw new Error('Renewal duration must be between 1 and 365 days.');
+  }
+
+  const now = new Date().toISOString();
+  const validUntil = addDaysToIso(now, days);
+
+  if (!isFirestoreConfigured()) {
+    assertWritablePersistentStore('Renewing helper listing validity');
+    const items = await readFileStore();
+    const index = items.findIndex((item) => item.id === id && item.moduleKey === 'helpers');
+
+    if (index === -1) {
+      throw new Error('Helper listing not found.');
+    }
+
+    const current = items[index]!;
+    if (current.status !== 'approved') {
+      throw new Error('Only approved helper listings can be renewed.');
+    }
+
+    const updated: ListingRecord = {
+      ...current,
+      validFrom: now,
+      validUntil,
+      lastRenewedAt: now,
+      updatedAt: now,
+    };
+
+    items[index] = updated;
+    await writeFileStore(items);
+    return updated;
+  }
+
+  try {
+    const documentReference = getFirestoreAdmin().collection(getCollectionName('helpers')).doc(id);
+    const existing = await documentReference.get();
+
+    if (!existing.exists) {
+      throw new Error('Helper listing not found.');
+    }
+
+    const current = normalizeRecord(existing.id, existing.data() as Partial<ListingRecord>);
+    if (current.status !== 'approved') {
+      throw new Error('Only approved helper listings can be renewed.');
+    }
+
+    await documentReference.update({
+      validFrom: now,
+      validUntil,
+      lastRenewedAt: now,
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+
+    const snapshot = await documentReference.get();
+    if (!snapshot.exists) {
+      throw new Error('Helper listing not found.');
+    }
+
+    return normalizeRecord(snapshot.id, snapshot.data() as Partial<ListingRecord>);
+  } catch (error) {
+    console.error('Falling back to local submission store after helper renewal update failed.', error);
+    assertWritablePersistentStore('Renewing helper listing validity');
+    const items = await readFileStore();
+    const index = items.findIndex((item) => item.id === id && item.moduleKey === 'helpers');
+
+    if (index === -1) {
+      throw new Error('Helper listing not found.');
+    }
+
+    const current = items[index]!;
+    if (current.status !== 'approved') {
+      throw new Error('Only approved helper listings can be renewed.');
+    }
+
+    const updated: ListingRecord = {
+      ...current,
+      validFrom: now,
+      validUntil,
+      lastRenewedAt: now,
+      updatedAt: now,
+    };
+
+    items[index] = updated;
+    await writeFileStore(items);
+    return updated;
+  }
+}
+
+export async function incrementHelperPhoneClick(id: string): Promise<ListingRecord> {
+  const now = new Date().toISOString();
+
+  if (!isFirestoreConfigured()) {
+    assertWritablePersistentStore('Updating helper phone click analytics');
+    const items = await readFileStore();
+    const index = items.findIndex((item) => item.id === id && item.moduleKey === 'helpers');
+
+    if (index === -1) {
+      throw new Error('Helper listing not found.');
+    }
+
+    const current = items[index]!;
+    if (!current.approved || getListingExpiryState(current).expired) {
+      throw new Error('Helper listing is not active.');
+    }
+
+    const updated: ListingRecord = {
+      ...current,
+      phoneClickCount: current.phoneClickCount + 1,
+      lastPhoneClickAt: now,
+      updatedAt: now,
+    };
+
+    items[index] = updated;
+    await writeFileStore(items);
+    return updated;
+  }
+
+  try {
+    const documentReference = getFirestoreAdmin().collection(getCollectionName('helpers')).doc(id);
+    const existing = await documentReference.get();
+
+    if (!existing.exists) {
+      throw new Error('Helper listing not found.');
+    }
+
+    const current = normalizeRecord(existing.id, existing.data() as Partial<ListingRecord>);
+    if (!current.approved || getListingExpiryState(current).expired) {
+      throw new Error('Helper listing is not active.');
+    }
+
+    await documentReference.update({
+      phoneClickCount: FieldValue.increment(1),
+      lastPhoneClickAt: now,
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+
+    const snapshot = await documentReference.get();
+    if (!snapshot.exists) {
+      throw new Error('Helper listing not found.');
+    }
+
+    return normalizeRecord(snapshot.id, snapshot.data() as Partial<ListingRecord>);
+  } catch (error) {
+    console.error('Falling back to local submission store after helper click update failed.', error);
+    assertWritablePersistentStore('Updating helper phone click analytics');
+    const items = await readFileStore();
+    const index = items.findIndex((item) => item.id === id && item.moduleKey === 'helpers');
+
+    if (index === -1) {
+      throw new Error('Helper listing not found.');
+    }
+
+    const current = items[index]!;
+    if (!current.approved || getListingExpiryState(current).expired) {
+      throw new Error('Helper listing is not active.');
+    }
+
+    const updated: ListingRecord = {
+      ...current,
+      phoneClickCount: current.phoneClickCount + 1,
+      lastPhoneClickAt: now,
+      updatedAt: now,
+    };
+
+    items[index] = updated;
+    await writeFileStore(items);
+    return updated;
+  }
+}
+

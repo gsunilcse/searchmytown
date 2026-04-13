@@ -139,6 +139,7 @@ export const QUICK_CARDS: QuickCard[] = [
   { label: 'Helpers', icon: '🛠️', color: '#52525b', description: 'Service providers', moduleKey: 'helpers' },
   { label: 'Travel', icon: '✈️', color: '#52525b', description: 'Travel contacts', moduleKey: 'travel' },
   { label: 'Events', icon: '🎆', color: '#52525b', description: 'Local events', moduleKey: 'events' },
+  { label: 'Function Halls', icon: '🏛️', color: '#52525b', description: 'Event venues and halls', moduleKey: 'function-halls' },
 ];
 
 export function getTownById(townId: string): Town | undefined {

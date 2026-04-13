@@ -18,6 +18,18 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
+## Environment Variables
+
+You can configure auto-selection of a nearby town from geolocation on the landing page.
+
+```bash
+# .env.local
+NEXT_PUBLIC_NEAREST_TOWN_MAX_DISTANCE_KM=10
+```
+
+- If this value is missing or invalid, the app uses `10` km.
+- Because this is a `NEXT_PUBLIC_` variable, restart the dev server after changing it.
+
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
 ## Learn More

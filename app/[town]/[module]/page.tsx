@@ -12,6 +12,7 @@ import { fetchLiveMoviesByTownName, getBookMyShowMoviesUrlByTownName } from '@/l
 import { buildModuleMetadata, getModuleJsonLd, getModuleSeoContent } from '@/lib/seo';
 import { getApprovedListings } from '@/lib/submissions';
 import { getEnabledTownById } from '@/lib/town-settings';
+import HelperPhoneLink from '@/components/HelperPhoneLink';
 import { 
   ChevronRight, 
   ArrowLeft, 
@@ -86,10 +87,19 @@ export default async function ModulePage({ params }: ModulePageProps) {
   const helperListingsByCategory = isHelpersModule
     ? HELPER_CATEGORY_DEFINITIONS.map((category) => ({
         category,
-        items: listings.filter((listing) => {
-          const listingCategory = getHelperCategoryLabel(listing);
-          return listingCategory === category.label && Boolean(listing.phone.trim());
-        }),
+        items: listings
+          .filter((listing) => {
+            const listingCategory = getHelperCategoryLabel(listing);
+            return listingCategory === category.label && Boolean(listing.phone.trim());
+          })
+          .sort((left, right) => {
+            const clickDelta = right.phoneClickCount - left.phoneClickCount;
+            if (clickDelta !== 0) {
+              return clickDelta;
+            }
+
+            return right.submittedAt.localeCompare(left.submittedAt);
+          }),
       }))
     : [];
   const hasHelperContacts = helperListingsByCategory.some((categoryGroup) => categoryGroup.items.length > 0);
@@ -292,7 +302,7 @@ export default async function ModulePage({ params }: ModulePageProps) {
             <div className="premium-card border-emerald-500/20 bg-gradient-to-br from-emerald-500/10 via-zinc-950/50 to-zinc-950/80">
               <h2 className="text-3xl font-display text-white">Find trusted helpers by category</h2>
               <p className="mt-3 text-sm text-zinc-400 leading-relaxed">
-                Quick contacts for {selectedTown.name}. Each category shows only helper name and phone number.
+                Quick contacts for {selectedTown.name}. Each category shows helper name, phone number, and village/locality.
               </p>
             </div>
 
@@ -312,14 +322,13 @@ export default async function ModulePage({ params }: ModulePageProps) {
                   <div className="mt-5 space-y-3">
                     {items.length > 0 ? (
                       items.map((listing) => (
-                        <a
+                        <HelperPhoneLink
                           key={listing.id}
-                          href={`tel:${listing.phone}`}
-                          className="block rounded-2xl border border-white/10 bg-zinc-950/50 p-4 transition hover:border-emerald-400/50 hover:bg-zinc-900/80"
-                        >
-                          <div className="text-sm font-bold text-white truncate">{listing.contactName || listing.title}</div>
-                          <div className="mt-1 text-xs font-semibold text-emerald-300">{listing.phone}</div>
-                        </a>
+                          listingId={listing.id}
+                          phone={listing.phone}
+                          contactName={listing.contactName || listing.title}
+                          locality={listing.helperLocality || listing.address || listing.townName}
+                        />
                       ))
                     ) : (
                       <div className="rounded-2xl border border-dashed border-white/10 bg-zinc-950/40 p-4 text-xs text-zinc-500">

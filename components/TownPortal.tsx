@@ -57,6 +57,15 @@ type NewsItem = {
   time: string;
 };
 
+const DEFAULT_NEAREST_TOWN_MAX_DISTANCE_KM = 10;
+const parsedNearestTownDistance = Number.parseFloat(
+  process.env.NEXT_PUBLIC_NEAREST_TOWN_MAX_DISTANCE_KM ?? ''
+);
+const NEAREST_TOWN_MAX_DISTANCE_KM =
+  Number.isFinite(parsedNearestTownDistance) && parsedNearestTownDistance > 0
+    ? parsedNearestTownDistance
+    : DEFAULT_NEAREST_TOWN_MAX_DISTANCE_KM;
+
 const moduleDescriptions: Record<string, string> = {
   schools: 'Verified local schools and institution details.',
   news: 'Latest headlines and official announcements.',
@@ -68,6 +77,7 @@ const moduleDescriptions: Record<string, string> = {
   travel: 'Public transport and local travel guides.',
   helpers: 'Trusted technicians and service providers.',
   events: 'Community celebrations and public notices.',
+  'function-halls': 'Book trusted function halls and event venues in your town.',
 };
 
 function getNavItemHref(townId: string, item: NavCategory['items'][number]): string {
@@ -175,25 +185,37 @@ function getDistanceInKm(from: { lat: number; lng: number }, to: { lat: number; 
   return earthRadiusKm * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-function findNearestTown(latitude: number, longitude: number, availableTowns: Town[]): Town | null {
+function findNearestTownWithinRadius(
+  latitude: number,
+  longitude: number,
+  availableTowns: Town[],
+  maxDistanceKm: number
+): Town | null {
   const townsWithCoords = availableTowns.filter((town) => town.coords);
   if (townsWithCoords.length === 0) {
     return null;
   }
 
-  return townsWithCoords.reduce<Town | null>((closestTown, town) => {
+  let nearestTown: Town | null = null;
+  let nearestDistanceKm = Number.POSITIVE_INFINITY;
+
+  for (const town of townsWithCoords) {
     if (!town.coords) {
-      return closestTown;
+      continue;
     }
 
-    if (!closestTown?.coords) {
-      return town;
+    const distanceKm = getDistanceInKm({ lat: latitude, lng: longitude }, town.coords);
+    if (distanceKm < nearestDistanceKm) {
+      nearestDistanceKm = distanceKm;
+      nearestTown = town;
     }
+  }
 
-    const currentDistance = getDistanceInKm({ lat: latitude, lng: longitude }, town.coords);
-    const closestDistance = getDistanceInKm({ lat: latitude, lng: longitude }, closestTown.coords);
-    return currentDistance < closestDistance ? town : closestTown;
-  }, null);
+  if (nearestTown && nearestDistanceKm <= maxDistanceKm) {
+    return nearestTown;
+  }
+
+  return null;
 }
 
 function CategoryMenu({
@@ -363,11 +385,16 @@ export default function TownPortal({ initialTownId = null, availableTowns, viewe
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        const nearestTown = findNearestTown(position.coords.latitude, position.coords.longitude, availableTowns);
+        const nearestTown = findNearestTownWithinRadius(
+          position.coords.latitude,
+          position.coords.longitude,
+          availableTowns,
+          NEAREST_TOWN_MAX_DISTANCE_KM
+        );
         setIsDetecting(false);
 
         if (!nearestTown) {
-          setDetectMessage('No serviceable town was found for your current coordinates.');
+          setDetectMessage(`No enabled town was found within ${NEAREST_TOWN_MAX_DISTANCE_KM} km of your location.`);
           return;
         }
 

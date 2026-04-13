@@ -1,9 +1,22 @@
 import { NextResponse } from 'next/server';
 import { isDirectoryModuleKey } from '@/config/modules';
 import { canAccessAdmin, canModerateTown, getAppViewer } from '@/lib/auth';
-import { getListingById, updateListingStatus } from '@/lib/submissions';
+import { getListingById, renewHelperListingValidity, updateListingStatus } from '@/lib/submissions';
 
 export const runtime = 'nodejs';
+
+type ModerationBody = {
+  action?: 'moderate';
+  moduleKey?: string;
+  status?: string;
+  moderationNote?: string;
+};
+
+type RenewBody = {
+  action: 'renew';
+  moduleKey?: string;
+  renewalDays?: number;
+};
 
 export async function PATCH(request: Request, context: RouteContext<'/api/admin/submissions/[id]'>) {
   const viewer = await getAppViewer();
@@ -12,15 +25,10 @@ export async function PATCH(request: Request, context: RouteContext<'/api/admin/
   }
 
   const { id } = await context.params;
-  const body = (await request.json()) as { moduleKey?: string; status?: string; moderationNote?: string };
-  const status = body.status;
+  const body = (await request.json()) as ModerationBody | RenewBody;
 
   if (!body.moduleKey || !isDirectoryModuleKey(body.moduleKey)) {
     return NextResponse.json({ error: 'Invalid module for moderation.' }, { status: 400 });
-  }
-
-  if (status !== 'approved' && status !== 'rejected') {
-    return NextResponse.json({ error: 'Invalid moderation status.' }, { status: 400 });
   }
 
   try {
@@ -31,6 +39,25 @@ export async function PATCH(request: Request, context: RouteContext<'/api/admin/
 
     if (!canModerateTown(viewer, existingRecord.townId)) {
       return NextResponse.json({ error: 'You do not have moderation access for this town.' }, { status: 403 });
+    }
+
+    if (body.action === 'renew') {
+      if (body.moduleKey !== 'helpers') {
+        return NextResponse.json({ error: 'Renewal is only available for helper listings.' }, { status: 400 });
+      }
+
+      const renewalDays = Number.isInteger(body.renewalDays) ? Number(body.renewalDays) : 0;
+      if (renewalDays <= 0) {
+        return NextResponse.json({ error: 'Provide a valid renewal duration in days.' }, { status: 400 });
+      }
+
+      const record = await renewHelperListingValidity(id, renewalDays);
+      return NextResponse.json({ record });
+    }
+
+    const status = body.status;
+    if (status !== 'approved' && status !== 'rejected') {
+      return NextResponse.json({ error: 'Invalid moderation status.' }, { status: 400 });
     }
 
     const record = await updateListingStatus(body.moduleKey, id, status, body.moderationNote ?? '');

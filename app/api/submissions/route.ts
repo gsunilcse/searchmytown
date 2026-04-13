@@ -46,6 +46,7 @@ export async function POST(request: Request) {
       address: typeof body.address === 'string' ? body.address : '',
       website: typeof body.website === 'string' ? body.website : '',
       helperCategory: typeof body.helperCategory === 'string' ? body.helperCategory : undefined,
+      helperLocality: typeof body.helperLocality === 'string' ? body.helperLocality : '',
       submittedByEmail: viewer.email,
       submittedByName: viewer.name ?? '',
     });
